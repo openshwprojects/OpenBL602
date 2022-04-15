@@ -145,6 +145,7 @@ export COMPONENTS
 #COMPONENT_PATHS := $(foreach comp,$(COMPONENTS),$(firstword $(foreach cd,$(COMPONENT_DIRS),$(wildcard $(dir $(cd))$(comp) $(cd)/$(comp)))))
 #COMPONENT_PATHS := $(patsubst %/,%,$(COMPONENTS_RAL_PATH))
 COMPONENT_PATHS := $(COMPONENTS_REAL_PATH)
+COMPONENT_PATHS += $(BL60X_SDK_PATH)/customer_app/bl602_sharedApp/bl602_sharedApp/shared
 export COMPONENT_PATHS
 
 
@@ -352,6 +353,8 @@ CFLAGS := $(strip \
 	$(E21_CPU_CFLAGS) \
 	$(EXTRA_CFLAGS)) \
 	-save-temps=obj
+	
+CFLAGS += -DPLATFORM_BL602=1
 
 CXXFLAGS := $(strip \
 	-std=c++11 \
