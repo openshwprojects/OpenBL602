@@ -498,10 +498,10 @@ extern const struct __sFILE_fake __sf_fake_stderr;
 
 #endif /* _REENT_GLOBAL_STDIO_STREAMS */
 
-/* Specify how to handle reent_check malloc failures. */
-#ifdef _REENT_CHECK_VERIFY
+/* Only add assert() calls if we are specified to debug.  */
+#ifdef _REENT_CHECK_DEBUG
 #include <assert.h>
-#define __reent_assert(x) ((x) ? (void)0 : __assert_func(__FILE__, __LINE__, (char *)0, "REENT malloc succeeded"))
+#define __reent_assert(x) assert(x)
 #else
 #define __reent_assert(x) ((void)0)
 #endif

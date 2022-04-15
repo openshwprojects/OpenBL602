@@ -1,3 +1,0 @@
-#!/bin/sh
-make CONFIG_CHIP_NAME=$1 -j
-exit $?

@@ -1,6 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
-<!-- Copyright (C) 1988-2020 Free Software Foundation, Inc.
+<!-- Copyright (C) 1988-2018 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -19,7 +19,7 @@ A GNU Manual
 You have freedom to copy and modify this GNU Manual, like GNU
      software.  Copies published by the Free Software Foundation raise
      funds for GNU development. -->
-<!-- Created by GNU Texinfo 6.7, http://www.gnu.org/software/texinfo/ -->
+<!-- Created by GNU Texinfo 6.5, http://www.gnu.org/software/texinfo/ -->
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <title>Conversions (GNU Compiler Collection (GCC) Internals)</title>
@@ -29,24 +29,33 @@ You have freedom to copy and modify this GNU Manual, like GNU
 <meta name="resource-type" content="document">
 <meta name="distribution" content="global">
 <meta name="Generator" content="makeinfo">
-<link href="index.html" rel="start" title="Top">
-<link href="Option-Index.html" rel="index" title="Option Index">
+<link href="index.html#Top" rel="start" title="Top">
+<link href="Option-Index.html#Option-Index" rel="index" title="Option Index">
 <link href="index.html#SEC_Contents" rel="contents" title="Table of Contents">
-<link href="RTL.html" rel="up" title="RTL">
-<link href="RTL-Declarations.html" rel="next" title="RTL Declarations">
-<link href="Vector-Operations.html" rel="prev" title="Vector Operations">
+<link href="RTL.html#RTL" rel="up" title="RTL">
+<link href="RTL-Declarations.html#RTL-Declarations" rel="next" title="RTL Declarations">
+<link href="Vector-Operations.html#Vector-Operations" rel="prev" title="Vector Operations">
 <style type="text/css">
 <!--
 a.summary-letter {text-decoration: none}
 blockquote.indentedblock {margin-right: 0em}
+blockquote.smallindentedblock {margin-right: 0em; font-size: smaller}
+blockquote.smallquotation {font-size: smaller}
 div.display {margin-left: 3.2em}
 div.example {margin-left: 3.2em}
 div.lisp {margin-left: 3.2em}
+div.smalldisplay {margin-left: 3.2em}
+div.smallexample {margin-left: 3.2em}
+div.smalllisp {margin-left: 3.2em}
 kbd {font-style: oblique}
 pre.display {font-family: inherit}
 pre.format {font-family: inherit}
 pre.menu-comment {font-family: serif}
 pre.menu-preformatted {font-family: serif}
+pre.smalldisplay {font-family: inherit; font-size: smaller}
+pre.smallexample {font-size: smaller}
+pre.smallformat {font-family: inherit; font-size: smaller}
+pre.smalllisp {font-size: smaller}
 span.nolinebreak {white-space: nowrap}
 span.roman {font-family: initial; font-weight: normal}
 span.sansserif {font-family: sans-serif; font-weight: normal}
@@ -58,14 +67,16 @@ ul.no-bullet {list-style: none}
 </head>
 
 <body lang="en">
-<span id="Conversions"></span><div class="header">
+<a name="Conversions"></a>
+<div class="header">
 <p>
-Next: <a href="RTL-Declarations.html" accesskey="n" rel="next">RTL Declarations</a>, Previous: <a href="Vector-Operations.html" accesskey="p" rel="prev">Vector Operations</a>, Up: <a href="RTL.html" accesskey="u" rel="up">RTL</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Option-Index.html" title="Index" rel="index">Index</a>]</p>
+Next: <a href="RTL-Declarations.html#RTL-Declarations" accesskey="n" rel="next">RTL Declarations</a>, Previous: <a href="Vector-Operations.html#Vector-Operations" accesskey="p" rel="prev">Vector Operations</a>, Up: <a href="RTL.html#RTL" accesskey="u" rel="up">RTL</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Option-Index.html#Option-Index" title="Index" rel="index">Index</a>]</p>
 </div>
 <hr>
-<span id="Conversions-1"></span><h3 class="section">14.13 Conversions</h3>
-<span id="index-conversions"></span>
-<span id="index-machine-mode-conversions"></span>
+<a name="Conversions-1"></a>
+<h3 class="section">14.13 Conversions</h3>
+<a name="index-conversions"></a>
+<a name="index-machine-mode-conversions"></a>
 
 <p>All conversions between machine modes must be represented by
 explicit conversion operations.  For example, an expression
@@ -75,8 +86,8 @@ operation requires two operands of the same machine mode.
 Therefore, the byte-sized operand is enclosed in a conversion
 operation, as in
 </p>
-<div class="example">
-<pre class="example">(plus:SI (sign_extend:SI (reg:QI 34)) (reg:SI 80))
+<div class="smallexample">
+<pre class="smallexample">(plus:SI (sign_extend:SI (reg:QI 34)) (reg:SI 80))
 </pre></div>
 
 <p>The conversion operation is not a mere placeholder, because there
@@ -90,35 +101,35 @@ The conversion must either be done at compile-time or <var>x</var>
 must be placed into a register.
 </p>
 <dl compact="compact">
-<dd><span id="index-sign_005fextend"></span>
+<dd><a name="index-sign_005fextend"></a>
 </dd>
 <dt><code>(sign_extend:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>Represents the result of sign-extending the value <var>x</var>
 to machine mode <var>m</var>.  <var>m</var> must be a fixed-point mode
 and <var>x</var> a fixed-point value of a mode narrower than <var>m</var>.
 </p>
-<span id="index-zero_005fextend"></span>
+<a name="index-zero_005fextend"></a>
 </dd>
 <dt><code>(zero_extend:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>Represents the result of zero-extending the value <var>x</var>
 to machine mode <var>m</var>.  <var>m</var> must be a fixed-point mode
 and <var>x</var> a fixed-point value of a mode narrower than <var>m</var>.
 </p>
-<span id="index-float_005fextend"></span>
+<a name="index-float_005fextend"></a>
 </dd>
 <dt><code>(float_extend:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>Represents the result of extending the value <var>x</var>
 to machine mode <var>m</var>.  <var>m</var> must be a floating point mode
 and <var>x</var> a floating point value of a mode narrower than <var>m</var>.
 </p>
-<span id="index-truncate"></span>
+<a name="index-truncate"></a>
 </dd>
 <dt><code>(truncate:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>Represents the result of truncating the value <var>x</var>
 to machine mode <var>m</var>.  <var>m</var> must be a fixed-point mode
 and <var>x</var> a fixed-point value of a mode wider than <var>m</var>.
 </p>
-<span id="index-ss_005ftruncate"></span>
+<a name="index-ss_005ftruncate"></a>
 </dd>
 <dt><code>(ss_truncate:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>Represents the result of truncating the value <var>x</var>
@@ -126,7 +137,7 @@ to machine mode <var>m</var>, using signed saturation in the case of
 overflow.  Both <var>m</var> and the mode of <var>x</var> must be fixed-point
 modes.
 </p>
-<span id="index-us_005ftruncate"></span>
+<a name="index-us_005ftruncate"></a>
 </dd>
 <dt><code>(us_truncate:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>Represents the result of truncating the value <var>x</var>
@@ -134,26 +145,26 @@ to machine mode <var>m</var>, using unsigned saturation in the case of
 overflow.  Both <var>m</var> and the mode of <var>x</var> must be fixed-point
 modes.
 </p>
-<span id="index-float_005ftruncate"></span>
+<a name="index-float_005ftruncate"></a>
 </dd>
 <dt><code>(float_truncate:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>Represents the result of truncating the value <var>x</var>
 to machine mode <var>m</var>.  <var>m</var> must be a floating point mode
 and <var>x</var> a floating point value of a mode wider than <var>m</var>.
 </p>
-<span id="index-float"></span>
+<a name="index-float"></a>
 </dd>
 <dt><code>(float:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>Represents the result of converting fixed point value <var>x</var>,
 regarded as signed, to floating point mode <var>m</var>.
 </p>
-<span id="index-unsigned_005ffloat"></span>
+<a name="index-unsigned_005ffloat"></a>
 </dd>
 <dt><code>(unsigned_float:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>Represents the result of converting fixed point value <var>x</var>,
 regarded as unsigned, to floating point mode <var>m</var>.
 </p>
-<span id="index-fix"></span>
+<a name="index-fix"></a>
 </dd>
 <dt><code>(fix:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>When <var>m</var> is a floating-point mode, represents the result of
@@ -166,14 +177,14 @@ converting floating point value <var>x</var> to mode <var>m</var>, regarded as
 signed.  How rounding is done is not specified, so this operation may
 be used validly in compiling C code only for integer-valued operands.
 </p>
-<span id="index-unsigned_005ffix"></span>
+<a name="index-unsigned_005ffix"></a>
 </dd>
 <dt><code>(unsigned_fix:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>Represents the result of converting floating point value <var>x</var> to
 fixed point mode <var>m</var>, regarded as unsigned.  How rounding is done
 is not specified.
 </p>
-<span id="index-fract_005fconvert"></span>
+<a name="index-fract_005fconvert"></a>
 </dd>
 <dt><code>(fract_convert:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>Represents the result of converting fixed-point value <var>x</var> to
@@ -183,7 +194,7 @@ fixed-point mode <var>m</var>, fixed-point value <var>x</var> to integer mode <v
 regarded as signed, or fixed-point value <var>x</var> to floating-point mode <var>m</var>.
 When overflows or underflows happen, the results are undefined.
 </p>
-<span id="index-sat_005ffract"></span>
+<a name="index-sat_005ffract"></a>
 </dd>
 <dt><code>(sat_fract:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>Represents the result of converting fixed-point value <var>x</var> to
@@ -193,7 +204,7 @@ fixed-point mode <var>m</var>.
 When overflows or underflows happen, the results are saturated to the
 maximum or the minimum.
 </p>
-<span id="index-unsigned_005ffract_005fconvert"></span>
+<a name="index-unsigned_005ffract_005fconvert"></a>
 </dd>
 <dt><code>(unsigned_fract_convert:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>Represents the result of converting fixed-point value <var>x</var> to
@@ -201,7 +212,7 @@ integer mode <var>m</var> regarded as unsigned, or unsigned integer value <var>x
 fixed-point mode <var>m</var>.
 When overflows or underflows happen, the results are undefined.
 </p>
-<span id="index-unsigned_005fsat_005ffract"></span>
+<a name="index-unsigned_005fsat_005ffract"></a>
 </dd>
 <dt><code>(unsigned_sat_fract:<var>m</var> <var>x</var>)</code></dt>
 <dd><p>Represents the result of converting unsigned integer value <var>x</var> to
@@ -214,7 +225,7 @@ maximum or the minimum.
 <hr>
 <div class="header">
 <p>
-Next: <a href="RTL-Declarations.html" accesskey="n" rel="next">RTL Declarations</a>, Previous: <a href="Vector-Operations.html" accesskey="p" rel="prev">Vector Operations</a>, Up: <a href="RTL.html" accesskey="u" rel="up">RTL</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Option-Index.html" title="Index" rel="index">Index</a>]</p>
+Next: <a href="RTL-Declarations.html#RTL-Declarations" accesskey="n" rel="next">RTL Declarations</a>, Previous: <a href="Vector-Operations.html#Vector-Operations" accesskey="p" rel="prev">Vector Operations</a>, Up: <a href="RTL.html#RTL" accesskey="u" rel="up">RTL</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Option-Index.html#Option-Index" title="Index" rel="index">Index</a>]</p>
 </div>
 
 

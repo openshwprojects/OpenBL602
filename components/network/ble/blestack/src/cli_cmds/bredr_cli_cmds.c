@@ -10,19 +10,13 @@
 #include <bluetooth.h>
 #include <hci_host.h>
 #include <conn.h>
-#include <conn_internal.h>
 #include <l2cap.h>
-#if CONFIG_BT_A2DP
-#include <a2dp.h>
-#endif
-#if CONFIG_BT_AVRCP
-#include <avrcp.h>
-#endif
 
 #include "cli.h"
 
 #if PCM_PRINTF
 #include "oi_codec_sbc.h"
+#include "a2dp.h"
 #endif
 
 
@@ -46,16 +40,7 @@ static void bredr_init(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
 static void bredr_write_eir(char *p_write_buffer, int write_buffer_len, int argc, char **argv);
 static void bredr_discoverable(char *p_write_buffer, int write_buffer_len, int argc, char **argv);
 static void bredr_connectable(char *p_write_buffer, int write_buffer_len, int argc, char **argv);
-static void bredr_disconnect(char *p_write_buffer, int write_buffer_len, int argc, char **argv);
 
-#if CONFIG_BT_A2DP
-static void a2dp_connect(char *p_write_buffer, int write_buffer_len, int argc, char **argv);
-#endif
-
-#if CONFIG_BT_AVRCP
-static void avrcp_pasthr_key(char *p_write_buffer, int write_buffer_len, int argc, char **argv);
-static void avrcp_change_vol(char *p_write_buffer, int write_buffer_len, int argc, char **argv);
-#endif
 
 
 const struct cli_command bredr_cmd_set[] STATIC_CLI_CMD_ATTRIBUTE = {
@@ -66,16 +51,6 @@ const struct cli_command bredr_cmd_set[] STATIC_CLI_CMD_ATTRIBUTE = {
     {"bredr_eir", "", bredr_write_eir},
     {"bredr_connectable", "", bredr_connectable},
     {"bredr_discoverable", "", bredr_discoverable},
-    {"bredr_disconnect", "", bredr_disconnect},
-
-    #if CONFIG_BT_A2DP
-    {"a2dp_connect", "", a2dp_connect},
-    #endif
-
-    #if CONFIG_BT_AVRCP
-    {"avrcp_pasthr_key", "", avrcp_pasthr_key},
-    {"avrcp_change_vol", "", avrcp_change_vol},
-    #endif
 
 };
 
@@ -127,11 +102,6 @@ static void bredr_init(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
 
 static void bredr_connected(struct bt_conn *conn, u8_t err)
 {
-    if(err || conn->type != BT_CONN_TYPE_BR)
-    {
-        return;
-    }
-
     char addr[BT_ADDR_STR_LEN];
 
     bt_conn_get_info(conn, &conn_info);
@@ -148,18 +118,10 @@ static void bredr_connected(struct bt_conn *conn, u8_t err)
     {
         default_conn = conn;
     }
-
-    bt_br_set_connectable(false);
-    bt_br_set_discoverable(false);
 }
 
 static void bredr_disconnected(struct bt_conn *conn, u8_t reason)
 {
-    if(conn->type != BT_CONN_TYPE_BR)
-    {
-        return;
-    }
-
     char addr[BT_ADDR_STR_LEN];
 
     bt_conn_get_info(conn, &conn_info);
@@ -176,7 +138,7 @@ static void bredr_disconnected(struct bt_conn *conn, u8_t reason)
 static void bredr_write_eir(char *p_write_buffer, int write_buffer_len, int argc, char **argv)
 {
     int err;
-    char *name = "Bouffalolab-classic-bluetooth";
+    char *name = "Bouffalolab-bl606p-classic-bt";
     uint8_t rec = 1;
     uint8_t data[32] = {0};
 
@@ -254,86 +216,6 @@ static void bredr_connectable(char *p_write_buffer, int write_buffer_len, int ar
     }
 }
 
-static void bredr_disconnect(char *p_write_buffer, int write_buffer_len, int argc, char **argv)
-{
-    if(!default_conn){
-        printf("Not connected.\n");
-        return;
-    }
-
-    if(bt_conn_disconnect(default_conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN)){
-        printf("Disconnection failed.\n");
-    }else{
-        printf("Disconnect successfully.\n");
-    }
-}
-
-
-#if CONFIG_BT_A2DP
-static void a2dp_connect(char *p_write_buffer, int write_buffer_len, int argc, char **argv)
-{
-    int err;
-
-    if(!default_conn){
-        printf("Not connected.\n");
-        return;
-    }
-
-    err = bt_a2dp_connect(default_conn);
-    if(err) {
-        printf("a2dp connect failed, err: %d\n", err);
-    } else {
-        printf("a2dp connect successfully.\n");
-    }
-}
-#endif
-
-#if CONFIG_BT_AVRCP
-static void avrcp_pasthr_key(char *p_write_buffer, int write_buffer_len, int argc, char **argv)
-{
-    int err;
-    uint8_t key;
-    if(!default_conn){
-        printf("Not connected.\n");
-        return;
-    }
-
-    get_uint8_from_string(&argv[1], &key);
-
-    err = avrcp_pasthr_cmd(NULL, PASTHR_STATE_PRESSED, key);
-    if(err) {
-        printf("avrcp pass through play pressed failed, err: %d\n", err);
-    } else {
-        printf("avrcp pass through play pressed successfully.\n");
-    }
-
-    err = avrcp_pasthr_cmd(NULL, PASTHR_STATE_RELEASED, key);
-    if(err) {
-        printf("avrcp pass through play released failed, err: %d\n", err);
-    } else {
-        printf("avrcp pass through play released successfully.\n");
-    }
-
-}
-
-static void avrcp_change_vol(char *p_write_buffer, int write_buffer_len, int argc, char **argv)
-{
-    int err;
-    uint8_t vol;
-    if(!default_conn){
-        printf("Not connected.\n");
-        return;
-    }
-
-    get_uint8_from_string(&argv[1], &vol);
-    err = avrcp_change_volume(vol);
-    if(err) {
-        printf("avrcp change volume fail\n");
-    }
-
-}
-
-#endif
 
 int bredr_cli_register(void)
 {

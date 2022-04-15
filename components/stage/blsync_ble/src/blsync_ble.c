@@ -8,7 +8,6 @@
 #include <zephyr/types.h>
 #include <bluetooth.h>
 #include <conn.h>
-#include "conn_internal.h"
 #include <gatt.h>
 #include <uuid.h>
 #include <blog.h>
@@ -44,26 +43,28 @@ static void blsync_exchange_func(struct bt_conn *conn, u8_t err,
 }
 
 static void blsync_disconnected(struct bt_conn *conn, u8_t reason)
-{
-	if(conn->type != BT_CONN_TYPE_LE)
-	{
-		return;
-	}
-
+{ 
 	printf("disconnected (reason %u)\r\n",reason);
 	blsync_conn = NULL;
 }
 
 static void blsync_connected(struct bt_conn *conn, u8_t err)
 {
-	if(err || conn->type != BT_CONN_TYPE_LE)
-	{
-		return;
-	}
+	int tx_octets = 0x00fb;
+	int tx_time = 0x0848;
 	int ret = -1;
 
 	printf("%s\n",__func__);
 	blsync_conn = conn;
+
+	//set data length after connected.
+	ret = bt_le_set_data_len(blsync_conn, tx_octets, tx_time);
+	if(!ret){
+		printf("Set data length success.\n");
+	}
+	else{
+		printf("Set data length failure, err: %d\n", ret);
+	}
 
 	//exchange mtu size after connected.
 	blsync_exchg_mtu.func = blsync_exchange_func;
@@ -229,10 +230,8 @@ static int __recv_event(void *p_drv, struct pro_event *p_event)
                   blog_info("wifi list end\r\n");
                   break;
               }
-              
-              blog_info("item_nums %d\r\n", gp_index->r_ap_item);
-              p_item = &gp_index->ap_item[gp_index->r_ap_item++];
-              
+              p_item = &gp_index->ap_item[gp_index->r_ap_item];
+              blog_info("item_nums %d\r\n", gp_index->r_ap_item++);
               p_root = cJSON_CreateObject();
 
               sprintf(bssid, "%02X:%02X:%02X:%02X:%02X:%02X",

@@ -83,17 +83,14 @@ ble_stack_srcs  := src/port/bl_port.c \
 					src/common/tinycrypt/source/utils.c \
 					src/bl_hci_wrapper/bl_hci_wrapper.c \
 					src/hci_onchip/hci_driver.c \
+					src/host/att.c \
+					src/host/conn.c \
 					src/host/crypto.c \
+					src/host/gatt.c \
 					src/host/hci_core.c \
 					src/host/hci_ecc.c \
 					src/host/l2cap.c \
-					src/host/uuid.c
-
-ifneq ($(CONFIG_BT_CONN), 0)
-ble_stack_srcs  += src/host/att.c \
-                   src/host/conn.c \
-		   src/host/gatt.c
-endif
+					src/host/uuid.c \
 					
 ifneq ($(CONFIG_DISABLE_BT_SMP), 1)
 ble_stack_srcs  += src/host/smp.c \
@@ -146,14 +143,16 @@ ifeq ($(CONFIG_BLE_MULTI_ADV),1)
 ble_stack_srcs   += src/host/multi_adv.c
 endif
 
-ifeq ($(CONFIG_BT_RESET),1)
 ble_stack_srcs   += src/host/bl_host_assist.c
-endif
 
-ble_audio_srcs   := src/host/iso.c
-
-bredr_stack_srcs := src/host/keys_br.c \
-                    src/host/l2cap_br.c \
+bredr_stack_srcs := src/host/a2dp.c \
+					src/host/at.c \
+					src/host/avdtp.c \
+					src/host/hfp_hf.c \
+					src/host/keys_br.c \
+					src/host/l2cap_br.c \
+					src/host/rfcomm.c \
+					src/host/sdp.c \
 
 sbc_codec_srcs := 	src/sbc/dec/alloc.c \
 					src/sbc/dec/bitalloc.c \
@@ -182,10 +181,6 @@ sbc_codec_include_dirs := 	src/sbc/dec \
 							src/sbc/enc \
 
 COMPONENT_SRCS := $(ble_stack_srcs)
-
-ifeq ($(CONFIG_BT_AUDIO),1)
-COMPONENT_SRCS += $(ble_audio_srcs)
-endif
 
 ifeq ($(CONFIG_BT_BREDR),1)
 COMPONENT_SRCS += $(bredr_stack_srcs)

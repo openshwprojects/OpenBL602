@@ -143,42 +143,20 @@ static void notify_connected(struct bt_conn *conn)
 {
 	struct bt_conn_cb *cb;
 
-#if defined(CONFIG_BT_BREDR)
-	if (conn->type == BT_CONN_TYPE_BR && conn->err) {
-		if (atomic_test_bit(bt_dev.flags, BT_DEV_ISCAN)) {
-			atomic_clear_bit(bt_dev.flags, BT_DEV_ISCAN);
-		}
-		if (atomic_test_bit(bt_dev.flags, BT_DEV_PSCAN)) {
-			atomic_clear_bit(bt_dev.flags, BT_DEV_PSCAN);
-		}
-	}
-#endif
-
 	for (cb = callback_list; cb; cb = cb->_next) {
 		if (cb->connected) {
 			cb->connected(conn, conn->err);
 		}
 	}
 
-	if (conn->type == BT_CONN_TYPE_LE && !conn->err) {
+	if (!conn->err) {
 		bt_gatt_connected(conn);
 	}
 }
 
-void notify_disconnected(struct bt_conn *conn)
+static void notify_disconnected(struct bt_conn *conn)
 {
 	struct bt_conn_cb *cb;
-
-#if defined(CONFIG_BT_BREDR)
-	if (conn->type == BT_CONN_TYPE_BR) {
-		if (atomic_test_bit(bt_dev.flags, BT_DEV_ISCAN)) {
-			atomic_clear_bit(bt_dev.flags, BT_DEV_ISCAN);
-		}
-	if (atomic_test_bit(bt_dev.flags, BT_DEV_PSCAN)) {
-			atomic_clear_bit(bt_dev.flags, BT_DEV_PSCAN);
-		}
-	}
-#endif
 
 	for (cb = callback_list; cb; cb = cb->_next) {
 		if (cb->disconnected) {
@@ -207,17 +185,6 @@ void notify_le_param_updated(struct bt_conn *conn)
 			cb->le_param_updated(conn, conn->le.interval,
 					     conn->le.latency,
 					     conn->le.timeout);
-		}
-	}
-}
-
-void notify_le_phy_updated(struct bt_conn *conn, u8_t tx_phy, u8_t rx_phy)
-{
-	struct bt_conn_cb *cb;
-
-	for (cb = callback_list; cb; cb = cb->_next) {
-		if (cb->le_phy_updated) {
-			cb->le_phy_updated(conn, tx_phy, rx_phy);
 		}
 	}
 }
@@ -347,9 +314,7 @@ static void conn_update_timeout(struct k_work *work)
 
 	if (conn->state == BT_CONN_DISCONNECTED) {
 		bt_l2cap_disconnected(conn);
-	#if !defined(BFLB_BLE)
 		notify_disconnected(conn);
-        #endif
 
 		/* Release the reference we took for the very first
 		 * state transition.
@@ -368,7 +333,7 @@ static void conn_update_timeout(struct k_work *work)
 		 * auto connect flag if it was set, instead just cancel
 		 * connection directly
 		 */
-		bt_hci_cmd_send_sync(BT_HCI_OP_LE_CREATE_CONN_CANCEL, NULL, NULL);
+		bt_hci_cmd_send(BT_HCI_OP_LE_CREATE_CONN_CANCEL, NULL);
 		return;
 	}
 
@@ -403,29 +368,6 @@ static void conn_update_timeout(struct k_work *work)
 
 	atomic_set_bit(conn->flags, BT_CONN_SLAVE_PARAM_UPDATE);
 }
-
-#if defined(CONFIG_BT_AUDIO)
-struct bt_conn *iso_conn_new(struct bt_conn *conns, size_t size)
-{
-	struct bt_conn *conn = NULL;
-	int i;
-
-	for (i = 0; i < size; i++) {
-		if (atomic_cas(&conns[i].ref, 0, 1)) {
-			conn = &conns[i];
-			break;
-		}
-	}
-
-	if (!conn) {
-		return NULL;
-	}
-
-	(void)memset(conn, 0, offsetof(struct bt_conn, ref));
-
-	return conn;
-}
-#endif
 
 static struct bt_conn *conn_new(void)
 {
@@ -1078,12 +1020,6 @@ int bt_conn_le_start_encryption(struct bt_conn *conn, u8_t rand[8],
 #if defined(CONFIG_BT_SMP) || defined(CONFIG_BT_BREDR)
 u8_t bt_conn_enc_key_size(struct bt_conn *conn)
 {
-	//GATT/SR/GAR/BV-04-C
-	// if the connection instance is valid
-	if(!conn){
-		return 0;
-	}
-
 	if (!conn->encrypt) {
 		return 0;
 	}
@@ -1219,7 +1155,7 @@ void bt_conn_cb_register(struct bt_conn_cb *cb)
 	callback_list = cb;
 }
 
-void bt_conn_reset_rx_state(struct bt_conn *conn)
+static void bt_conn_reset_rx_state(struct bt_conn *conn)
 {
 	if (!conn->rx_len) {
 		return;
@@ -2040,7 +1976,7 @@ static int bt_hci_disconnect(struct bt_conn *conn, u8_t reason)
 	disconn->handle = sys_cpu_to_le16(conn->handle);
 	disconn->reason = reason;
 
-	err = bt_hci_cmd_send_sync(BT_HCI_OP_DISCONNECT, buf, NULL);
+	err = bt_hci_cmd_send(BT_HCI_OP_DISCONNECT, buf);
 	if (err) {
 		return err;
 	}
@@ -2153,8 +2089,8 @@ int bt_conn_disconnect(struct bt_conn *conn, u8_t reason)
 
 		if (IS_ENABLED(CONFIG_BT_CENTRAL)) {
 			k_delayed_work_cancel(&conn->update_work);
-			return bt_hci_cmd_send_sync(BT_HCI_OP_LE_CREATE_CONN_CANCEL,
-					       NULL, NULL);
+			return bt_hci_cmd_send(BT_HCI_OP_LE_CREATE_CONN_CANCEL,
+					       NULL);
 		}
 
 		return 0;
@@ -2651,6 +2587,7 @@ struct bt_conn *bt_conn_lookup_id(u8_t id)
 	return bt_conn_ref(conn);
 }
 
+extern bool queue_inited;
 int bt_conn_init(void)
 {
 	#if defined(CONFIG_BT_SMP)
@@ -2660,17 +2597,9 @@ int bt_conn_init(void)
 
 #if defined(BFLB_BLE)
 #if defined(BFLB_DYNAMIC_ALLOC_MEM)
-    #if (BFLB_STATIC_ALLOC_MEM)
-    net_buf_init(ACL_TX,&acl_tx_pool, CONFIG_BT_L2CAP_TX_BUF_COUNT, BT_L2CAP_BUF_SIZE(CONFIG_BT_L2CAP_TX_MTU), NULL);
-    #else
     net_buf_init(&acl_tx_pool, CONFIG_BT_L2CAP_TX_BUF_COUNT, BT_L2CAP_BUF_SIZE(CONFIG_BT_L2CAP_TX_MTU), NULL);
-    #endif
 #if CONFIG_BT_L2CAP_TX_FRAG_COUNT > 0
-    #if (BFLB_STATIC_ALLOC_MEM)
-    net_buf_init(FRAG,&frag_pool, CONFIG_BT_L2CAP_TX_FRAG_COUNT, FRAG_SIZE, NULL);
-    #else
     net_buf_init(&frag_pool, CONFIG_BT_L2CAP_TX_FRAG_COUNT, FRAG_SIZE, NULL);
-    #endif
 #endif
 #else //BFLB_DYNAMIC_ALLOC_MEM
     struct net_buf_pool num_complete_pool;
@@ -2679,6 +2608,8 @@ int bt_conn_init(void)
     struct net_buf_pool frag_pool;
 #endif
 #endif//BFLB_DYNAMIC_ALLOC_MEM
+    if(queue_inited == false)
+        k_lifo_init(&acl_tx_pool.free, CONFIG_BT_L2CAP_TX_BUF_COUNT);
     k_fifo_init(&free_tx, 20);
 #endif
 	for (i = 0; i < ARRAY_SIZE(conn_tx); i++) {

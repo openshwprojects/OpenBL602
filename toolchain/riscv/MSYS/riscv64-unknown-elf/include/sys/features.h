@@ -521,13 +521,9 @@ extern "C" {
 /* #define _XOPEN_UNIX				    -1 */
 #endif /* __XSI_VISIBLE */
 
-/*
- * newlib's wide char conversion functions were updated on
- *	2019-01-12
- * to UNICODE version:
- *	11.0.0 released 2018-06-05
- */
-#define __STDC_ISO_10646__ 201806L
+/* The value corresponds to UNICODE version 5.2, which is the current
+   state of newlib's wide char conversion functions. */
+#define __STDC_ISO_10646__ 200910L
 
 #endif /* __CYGWIN__ */
 

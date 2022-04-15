@@ -1,3 +1,0 @@
-#!/bin/sh
-make CONFIG_BT=1 -j4
-exit $?

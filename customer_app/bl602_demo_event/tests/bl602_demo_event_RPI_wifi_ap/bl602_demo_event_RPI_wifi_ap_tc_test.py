@@ -25,22 +25,19 @@ def bl602_demo_event_RPI_wifi_ap_tc(env, extra_data):
         print('BL602 booted')
         dut.expect('Init CLI with event Driven', timeout=0.5)
         print('BL602 CLI init done')
-        time.sleep(1)
+        time.sleep(0.1)
 
         dut.write('stack_wifi')
-        time.sleep(2)
+        time.sleep(1)
         dut.write('wifi_ap_start 1')
-        ap_ssid = dut.expect(re.compile(r"\[WF\]\[SM\] start AP with ssid (.+);"), timeout=50)
+        ap_ssid = dut.expect(re.compile(r"\[WF\]\[SM\] start AP with ssid (.+);"), timeout=2)
         print('Started AP with SSID: {}'.format(ap_ssid[0]))
         rst = connect_device(ap_ssid[0])
         if rst != True:
             raise Exception
-
+        
         dut.halt()
     except Exception:
-        dut.write('p 0')
-        result_text = dut.read()
-        print(result_text)
         print('ENV_TEST_FAILURE: BL602 ble_wifi test failed')
         raise
 

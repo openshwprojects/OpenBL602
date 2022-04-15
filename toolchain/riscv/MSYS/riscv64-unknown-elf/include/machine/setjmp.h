@@ -238,7 +238,7 @@ _BEGIN_STD_C
 #endif
 
 #ifdef __moxie__
-#define _JBLEN 10
+#define _JBLEN 16
 #endif
 
 #ifdef __CRX__
@@ -352,11 +352,6 @@ _BEGIN_STD_C
 #define _JBTYPE unsigned long
 #endif
 
-#ifdef __PRU__
-#define _JBLEN 48
-#define _JBTYPE unsigned int
-#endif
-
 #ifdef __RX__
 #define _JBLEN 0x44
 #endif
@@ -374,17 +369,6 @@ _BEGIN_STD_C
 #define _JBLEN ((4*sizeof(long))/sizeof(long))
 #else
 #define _JBLEN ((14*sizeof(long) + 12*sizeof(double))/sizeof(long))
-#endif
-#endif
-
-#ifdef __CSKYABIV2__
-#define _JBTYPE unsigned long
-#if defined(__CK801__)
-#define _JBLEN 7
-#elif defined(__CK802__)
-#define _JBLEN 10
-#else
-#define _JBLEN 18
 #endif
 #endif
 
