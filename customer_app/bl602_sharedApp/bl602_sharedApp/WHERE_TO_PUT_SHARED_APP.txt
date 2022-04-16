@@ -1,0 +1,7 @@
+Here you should have 'shared' dir, which is a shared app repository.
+So you get:
+- customer_app\bl602_sharedApp\bl602_sharedApp
+- customer_app\bl602_sharedApp\bl602_sharedApp\shared\windowsTest_msvc2008.vcproj
+- customer_app\bl602_sharedApp\bl602_sharedApp\shared\src\new_cfg.c
+- customer_app\bl602_sharedApp\bl602_sharedApp\shared\src\new_pins.c
+Etc etc
