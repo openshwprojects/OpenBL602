@@ -140,7 +140,6 @@ COMPONENTS := $(filter $(INCLUDE_COMPONENTS), $(COMPONENTS))
 COMPONENTS_REAL_PATH := $(filter $(INCLUDE_COMPONENTS_REAL_PATH), $(COMPONENTS_REAL_PATH))
 endif
 export COMPONENTS
-#$(warning Components: $(COMPONENTS))
 # Resolve all of COMPONENTS into absolute paths in COMPONENT_PATHS.
 #
 # If a component name exists in multiple COMPONENT_DIRS, we take the first match.
