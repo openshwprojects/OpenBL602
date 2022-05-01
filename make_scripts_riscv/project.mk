@@ -124,7 +124,6 @@ else
 COMPONENTS_RAL_PATH :=  $(dir $(shell find $(BL60X_SDK_PATH)/ -name "bouffalo.mk"))
 endif
 
-$(warning Components: $(COMPONENTS_RAL_PATH))
 COMPONENTS := $(sort $(foreach comp,$(COMPONENTS_RAL_PATH),$(lastword $(subst /, ,$(comp)))))
 COMPONENTS_REAL_PATH := $(patsubst %/,%,$(COMPONENTS_RAL_PATH))
 #endif
