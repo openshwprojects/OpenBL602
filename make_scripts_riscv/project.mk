@@ -114,10 +114,16 @@ export COMPONENT_DIRS
 # Find all component names. The component names are the same as the
 # directories they're in, so /bla/components/mycomponent/bouffalo.mk -> mycomponent.
 # using by https://stackoverflow.com/questions/3774568/makefile-issue-smart-way-to-scan-directory-tree-for-c-files
+
+ifeq ($(OS),Windows_NT)
 rwildcard = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2))
 COMPONENTS_RAL_PATH :=  $(dir $(foreach cd,$(COMPONENT_DIRS),                       \
 						$(call rwildcard,$(cd)/,bouffalo.mk) 						\
 				))
+else
+COMPONENTS_RAL_PATH :=  $(dir $(shell find $(BL60X_SDK_PATH)/ -name "bouffalo.mk"))
+endif
+
 COMPONENTS := $(sort $(foreach comp,$(COMPONENTS_RAL_PATH),$(lastword $(subst /, ,$(comp)))))
 COMPONENTS_REAL_PATH := $(patsubst %/,%,$(COMPONENTS_RAL_PATH))
 #endif
