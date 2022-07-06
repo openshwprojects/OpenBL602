@@ -136,7 +136,7 @@ static void proc_hellow_entry(void *pvParameters)
     vTaskDelay(500);
     while (1) {
       ///  printf("%s: RISC-V rv32imafc\r\n", __func__);
-        printf("%s: HELLO LOOP WORLDD RISC-V rv32imafc\r\n", __func__);
+       // printf("%s: HELLO LOOP WORLDD RISC-V rv32imafc\r\n", __func__);
         vTaskDelay(1000);
 		Main_OnEverySecond();
     }
