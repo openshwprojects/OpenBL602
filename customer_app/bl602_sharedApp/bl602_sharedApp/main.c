@@ -969,12 +969,12 @@ static void system_thread_init()
 {
     /*nothing here*/
 }
-
+#define BL602_PLATFORM_STACK_SIZE 4096
 void bfl_main()
 {
-    static StackType_t aos_loop_proc_stack[1024];
+    static StackType_t aos_loop_proc_stack[BL602_PLATFORM_STACK_SIZE];
     static StaticTask_t aos_loop_proc_task;
-    static StackType_t proc_hellow_stack[512];
+    static StackType_t proc_hellow_stack[BL602_PLATFORM_STACK_SIZE];
     static StaticTask_t proc_hellow_task;
 
     time_main = bl_timer_now_us();
@@ -996,10 +996,11 @@ void bfl_main()
     system_init();
     system_thread_init();
 
+	printf("sizeof(StackType_t)=%i\r\n",sizeof(StackType_t));
     puts("[OS] Starting proc_hellow_entry task...\r\n");
-    xTaskCreateStatic(proc_hellow_entry, (char*)"hellow", 512, NULL, 15, proc_hellow_stack, &proc_hellow_task);
+    xTaskCreateStatic(proc_hellow_entry, (char*)"hellow", BL602_PLATFORM_STACK_SIZE, NULL, 15, proc_hellow_stack, &proc_hellow_task);
     puts("[OS] Starting aos_loop_proc task...\r\n");
-    xTaskCreateStatic(aos_loop_proc, (char*)"event_loop", 1024, NULL, 15, aos_loop_proc_stack, &aos_loop_proc_task);
+    xTaskCreateStatic(aos_loop_proc, (char*)"event_loop", BL602_PLATFORM_STACK_SIZE, NULL, 15, aos_loop_proc_stack, &aos_loop_proc_task);
     puts("[OS] Starting TCP/IP Stack...\r\n");
     tcpip_init(NULL, NULL);
 

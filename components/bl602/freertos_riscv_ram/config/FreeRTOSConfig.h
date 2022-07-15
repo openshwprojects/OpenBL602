@@ -86,6 +86,7 @@
  *----------------------------------------------------------*/
 
 #define configSUPPORT_STATIC_ALLOCATION              1
+#define configSUPPORT_DYNAMIC_ALLOCATION            1
 
 #define configCLINT_BASE_ADDRESS		CLINT_CTRL_ADDR
 #define configCLIC_TIMER_ENABLE_ADDRESS		(0x02800407)
@@ -111,7 +112,7 @@
 /* Checking for stack overflow */
 /*  4  -> taskCHECK_FOR_STACK_OVERFLOW: if( ( pulStack[ 0 ] != ulCheckValue ) || ( pulStack[ 1 ] != ulCheckValue ) || ( pulStack[ 2 ] != ulCheckValue ) || ( pulStack[ 3 ] != ulCheckValue ) ) */
 #define configMINIMAL_STACK_SIZE		( ( unsigned short ) 98 ) /* SIZE-1-1-12-16-30-34>=4 */
-#define configTOTAL_HEAP_SIZE			( ( size_t ) 14100 )
+#define configTOTAL_HEAP_SIZE			( ( size_t ) 28200 )
 #define configMAX_TASK_NAME_LEN			( 16 )
 #define configUSE_TRACE_FACILITY		1
 #define configUSE_STATS_FORMATTING_FUNCTIONS         1
