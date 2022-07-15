@@ -111,7 +111,7 @@
 /* -34 -> portasmSAVE_ADDITIONAL_REGISTERS: addi sp, sp, -(portasmADDITIONAL_CONTEXT_SIZE * portWORD_SIZE) */
 /* Checking for stack overflow */
 /*  4  -> taskCHECK_FOR_STACK_OVERFLOW: if( ( pulStack[ 0 ] != ulCheckValue ) || ( pulStack[ 1 ] != ulCheckValue ) || ( pulStack[ 2 ] != ulCheckValue ) || ( pulStack[ 3 ] != ulCheckValue ) ) */
-#define configMINIMAL_STACK_SIZE		( ( unsigned short ) 98 ) /* SIZE-1-1-12-16-30-34>=4 */
+#define configMINIMAL_STACK_SIZE		( ( unsigned short ) 118 ) /* SIZE-1-1-12-16-30-34>=4 */
 #define configTOTAL_HEAP_SIZE			( ( size_t ) 28200 )
 #define configMAX_TASK_NAME_LEN			( 16 )
 #define configUSE_TRACE_FACILITY		1
@@ -163,15 +163,15 @@ void vAssertCalled( void );
 
 /* Overwrite some of the stack sizes allocated to various test and demo tasks.
 Like all task stack sizes, the value is the number of words, not bytes. */
-#define bktBLOCK_TIME_TASK_STACK_SIZE 100
-#define notifyNOTIFIED_TASK_STACK_SIZE 120
-#define priSUSPENDED_RX_TASK_STACK_SIZE 90
-#define tmrTIMER_TEST_TASK_STACK_SIZE 100
-#define ebRENDESVOUS_TEST_TASK_STACK_SIZE 100
-#define ebEVENT_GROUP_SET_BITS_TEST_TASK_STACK_SIZE 115
-#define genqMUTEX_TEST_TASK_STACK_SIZE 90
-#define genqGENERIC_QUEUE_TEST_TASK_STACK_SIZE 100
-#define recmuRECURSIVE_MUTEX_TEST_TASK_STACK_SIZE 90
+#define bktBLOCK_TIME_TASK_STACK_SIZE 120
+#define notifyNOTIFIED_TASK_STACK_SIZE 140
+#define priSUSPENDED_RX_TASK_STACK_SIZE 110
+#define tmrTIMER_TEST_TASK_STACK_SIZE 120
+#define ebRENDESVOUS_TEST_TASK_STACK_SIZE 120
+#define ebEVENT_GROUP_SET_BITS_TEST_TASK_STACK_SIZE 125
+#define genqMUTEX_TEST_TASK_STACK_SIZE 110
+#define genqGENERIC_QUEUE_TEST_TASK_STACK_SIZE 120
+#define recmuRECURSIVE_MUTEX_TEST_TASK_STACK_SIZE 110
 
 #if ( configUSE_TICKLESS_IDLE != 0 )
 #include "portmacro.h"
