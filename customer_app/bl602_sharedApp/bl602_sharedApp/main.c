@@ -127,22 +127,28 @@ void vApplicationIdleHook(void)
 #endif
 }
 
+int g_main_ready = 0;
 void Main_OnEverySecond();
+void Main_OnQuickTick(int qTime);
 void Main_Init();
-static void proc_hellow_entry(void *pvParameters)
-{
-    vTaskDelay(500);
-	Main_Init();
-    vTaskDelay(500);
-    while (1) {
-      ///  printf("%s: RISC-V rv32imafc\r\n", __func__);
-       // printf("%s: HELLO LOOP WORLDD RISC-V rv32imafc\r\n", __func__);
-        vTaskDelay(1000);
-		Main_OnEverySecond();
-    }
-    vTaskDelete(NULL);
-}
+#define FRAME_MS  100
 
+static void app_delayed_action_100ms(void *arg)
+{
+	//Main_OnQuickTick(FRAME_MS);
+   // aos_post_delayed_action(FRAME_MS, app_delayed_action_100ms, NULL);
+}
+static void app_delayed_action_1000ms(void *arg)
+{
+	Main_OnEverySecond();
+    aos_post_delayed_action(1000, app_delayed_action_1000ms, NULL);
+}
+static void app_delayed_action_init(void *arg)
+{
+	Main_Init();
+    aos_post_delayed_action(1000, app_delayed_action_1000ms, NULL);
+    aos_post_delayed_action(FRAME_MS, app_delayed_action_100ms, NULL);
+}
 static unsigned char char_to_hex(char asccode)
 {
     unsigned char ret;
@@ -837,6 +843,8 @@ static void aos_loop_proc(void *pvParameters)
     aos_register_event_filter(EV_WIFI, event_cb_wifi_event, NULL);
     cmd_stack_wifi(NULL, 0, 0, NULL);
 
+    aos_post_delayed_action(500, app_delayed_action_init, NULL);
+
     aos_loop_run();
 
     puts("------------------------------------------\r\n");
@@ -974,8 +982,6 @@ void bfl_main()
 {
     static StackType_t aos_loop_proc_stack[BL602_PLATFORM_STACK_SIZE];
     static StaticTask_t aos_loop_proc_task;
-    static StackType_t proc_hellow_stack[BL602_PLATFORM_STACK_SIZE];
-    static StaticTask_t proc_hellow_task;
 
     time_main = bl_timer_now_us();
     /*Init UART In the first place*/
@@ -997,8 +1003,6 @@ void bfl_main()
     system_thread_init();
 
 	printf("sizeof(StackType_t)=%i\r\n",sizeof(StackType_t));
-    puts("[OS] Starting proc_hellow_entry task...\r\n");
-    xTaskCreateStatic(proc_hellow_entry, (char*)"hellow", BL602_PLATFORM_STACK_SIZE, NULL, 15, proc_hellow_stack, &proc_hellow_task);
     puts("[OS] Starting aos_loop_proc task...\r\n");
     xTaskCreateStatic(aos_loop_proc, (char*)"event_loop", BL602_PLATFORM_STACK_SIZE, NULL, 15, aos_loop_proc_stack, &aos_loop_proc_task);
     puts("[OS] Starting TCP/IP Stack...\r\n");
