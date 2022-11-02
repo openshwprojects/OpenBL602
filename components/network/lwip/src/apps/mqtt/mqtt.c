@@ -1153,7 +1153,7 @@ mqtt_publish(mqtt_client_t *client, const char *topic, const void *payload, u16_
   }
 
   mqtt_append_request(&client->pend_req_queue, r);
-  mqtt_output_send(&client->output, client->conn);
+  //mqtt_output_send(&client->output, client->conn);
   return ERR_OK;
 }
 
@@ -1221,7 +1221,7 @@ mqtt_sub_unsub(mqtt_client_t *client, const char *topic, u8_t qos, mqtt_request_
   }
 
   mqtt_append_request(&client->pend_req_queue, r);
-  mqtt_output_send(&client->output, client->conn);
+  //mqtt_output_send(&client->output, client->conn);
   return ERR_OK;
 }
 
