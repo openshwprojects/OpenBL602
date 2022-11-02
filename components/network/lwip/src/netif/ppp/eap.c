@@ -1326,12 +1326,6 @@ static void eap_request(ppp_pcb *pcb, u_char *inp, int id, int len) {
 #endif /* USE_SRP */
 
 	/*
-	 * Ignore requests if we're not open
-	 */
-	if (esp->es_client.ea_state <= eapClosed)
-		return;
-
-	/*
 	 * Note: we update es_client.ea_id *only if* a Response
 	 * message is being generated.  Otherwise, we leave it the
 	 * same for duplicate detection purposes.

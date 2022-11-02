@@ -668,11 +668,4 @@ void raw_netif_ip_addr_changed(const ip_addr_t *old_addr, const ip_addr_t *new_a
   }
 }
 
-#if LWIP_STATS
-struct raw_pcb *raw_get_pcbs(void)
-{
-  return raw_pcbs;
-}
-#endif
-
 #endif /* LWIP_RAW */

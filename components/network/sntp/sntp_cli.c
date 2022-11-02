@@ -9,7 +9,7 @@ void _startup_sntp(void *arg)
 {
     puts("--------------------------------------- Start NTP now\r\n");
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, "0.asia.pool.ntp.org");
+   // sntp_setservername(0, "0.asia.pool.ntp.org");
     sntp_init();
     puts("--------------------------------------- Start NTP Done\r\n");
 }

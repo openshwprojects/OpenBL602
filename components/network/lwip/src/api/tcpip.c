@@ -36,7 +36,6 @@
  *
  */
 
-#include <stdio.h>
 #include "lwip/opt.h"
 
 #if !NO_SYS /* don't build if not configured for use in lwipopts.h */
@@ -218,7 +217,7 @@ tcpip_thread_poll_one(void)
   int ret = 0;
   struct tcpip_msg *msg;
 
-  if (sys_arch_mbox_tryfetch(&tcpip_mbox, (void **)&msg) != SYS_ARCH_TIMEOUT) {
+  if (sys_arch_mbox_tryfetch(&tcpip_mbox, (void **)&msg) != SYS_MBOX_EMPTY) {
     LOCK_TCPIP_CORE();
     if (msg != NULL) {
       tcpip_thread_handle_msg(msg);
@@ -254,7 +253,6 @@ tcpip_inpkt(struct pbuf *p, struct netif *inp, netif_input_fn input_fn)
 
   msg = (struct tcpip_msg *)memp_malloc(MEMP_TCPIP_MSG_INPKT);
   if (msg == NULL) {
-    printf("[LWIP] NO TCP MSG\r\n");
     return ERR_MEM;
   }
 
@@ -263,7 +261,6 @@ tcpip_inpkt(struct pbuf *p, struct netif *inp, netif_input_fn input_fn)
   msg->msg.inp.netif = inp;
   msg->msg.inp.input_fn = input_fn;
   if (sys_mbox_trypost(&tcpip_mbox, msg) != ERR_OK) {
-    printf("[LWIP] NO MBOX\r\n");
     memp_free(MEMP_TCPIP_MSG_INPKT, msg);
     return ERR_MEM;
   }
@@ -604,19 +601,26 @@ tcpip_callbackmsg_trycallback_fromisr(struct tcpip_callback_msg *msg)
 void
 tcpip_init(tcpip_init_done_fn initfunc, void *arg)
 {
+	puts("lwip_init will call\n\r");
   lwip_init();
 
+	puts("lwip_init done\n\r");
   tcpip_init_done = initfunc;
   tcpip_init_done_arg = arg;
   if (sys_mbox_new(&tcpip_mbox, TCPIP_MBOX_SIZE) != ERR_OK) {
     LWIP_ASSERT("failed to create tcpip_thread mbox", 0);
+	puts("lailed to create tcpip_thread mboxe\n");
   }
+	puts("ssys_mbox_new done\n");
+
 #if LWIP_TCPIP_CORE_LOCKING
   if (sys_mutex_new(&lock_tcpip_core) != ERR_OK) {
     LWIP_ASSERT("failed to create lock_tcpip_core", 0);
+	puts("laailed to create lock_tcpipe\n");
   }
 #endif /* LWIP_TCPIP_CORE_LOCKING */
 
+	puts("sys_thread_new will call\n");
   sys_thread_new(TCPIP_THREAD_NAME, tcpip_thread, NULL, TCPIP_THREAD_STACKSIZE, TCPIP_THREAD_PRIO);
 }
 

@@ -537,6 +537,20 @@ alloc_socket(struct netconn *newconn, int accepted)
   return -1;
 }
 
+int LWIP_GetMaxSockets() {
+    return NUM_SOCKETS;
+}
+int LWIP_GetActiveSockets() {
+    int i;
+    int r=0;
+    for (i = 0; i < NUM_SOCKETS; ++i) {
+        if (sockets[i].conn) {
+            r++;
+        }
+    }
+    return r;
+}
+
 /** Free a socket (under lock)
  *
  * @param sock the socket to free
@@ -564,20 +578,6 @@ free_socket_locked(struct lwip_sock *sock, int is_tcp, struct netconn **conn,
   *conn = sock->conn;
   sock->conn = NULL;
   return 1;
-}
-
-int LWIP_GetMaxSockets() {
-	return NUM_SOCKETS;
-}
-int LWIP_GetActiveSockets() {
-	int i;
-	int r=0;
-	for (i = 0; i < NUM_SOCKETS; ++i) {
-		if (sockets[i].conn) {
-			r++;
-		}
-	}
-	return r;
 }
 
 /** Free a socket's leftover members.
@@ -819,6 +819,51 @@ lwip_close(int s)
 
   free_socket(sock, is_tcp);
   set_errno(0);
+  return 0;
+}
+
+// same as above but without SOCK_DEINIT_SYNC check
+// There is a bug in our htttp client and this is a temporary work around for that
+// Otherwise, it leaves sockets unfried and they adds up to 38 and block all networking
+int lwip_close_force(int s)
+{
+  struct lwip_sock *sock;
+  int is_tcp = 0;
+  err_t err;
+
+  LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_close(%d)\n", s));
+
+ // mylog12("lwip_close: called");
+  sock = get_socket(s);
+  if (!sock) {
+     // mylog12("lwip_close: get_socket ret 0");
+    return -1;
+  }
+ // mylog12("before deinit");
+ // SOCK_DEINIT_SYNC(sock);
+ // mylog12("after deinit");
+
+  if (sock->conn != NULL) {
+    is_tcp = NETCONNTYPE_GROUP(netconn_type(sock->conn)) == NETCONN_TCP;
+  } else {
+   // LWIP_ASSERT("sock->lastdata == NULL", sock->lastdata == NULL);
+  }
+
+#if LWIP_IGMP
+  /* drop all possibly joined IGMP memberships */
+  lwip_socket_drop_registered_memberships(s);
+#endif /* LWIP_IGMP */
+
+  err = netconn_delete(sock->conn);
+  if (err != ERR_OK) {
+    //  mylog12("lwip_close: netcon delete failed");
+    sock_set_errno(sock, err_to_errno(err));
+    return -1;
+  }
+
+  free_socket(sock, is_tcp);
+  set_errno(0);
+    //  mylog12("lwip_close: ok");
   return 0;
 }
 
@@ -2086,7 +2131,9 @@ lwip_select(int maxfdp1, fd_set *readset, fd_set *writeset, fd_set *exceptset,
         /* Call lwip_selscan again: there could have been events between
            the last scan (without us on the list) and putting us on the list! */
         nready = lwip_selscan(maxfdp1, readset, writeset, exceptset, &lreadset, &lwriteset, &lexceptset);
-        if (!nready) {
+        if (nready < 0) {
+          set_errno(EBADF);
+        } else if (!nready) {
           /* Still none ready, just wait to be woken */
           if (timeout == 0) {
             /* Wait forever */
@@ -2115,7 +2162,8 @@ lwip_select(int maxfdp1, fd_set *readset, fd_set *writeset, fd_set *exceptset,
             (exceptset && FD_ISSET(i, exceptset))) {
           struct lwip_sock *sock;
           SYS_ARCH_PROTECT(lev);
-          sock = tryget_socket_unconn_locked(i);
+          sock = tryget_socket_unconn_nouse(i);
+          LWIP_ASSERT("socket gone at the end of select", sock != NULL);
           if (sock != NULL) {
             /* for now, handle select_waiting==0... */
             LWIP_ASSERT("sock->select_waiting > 0", sock->select_waiting > 0);
@@ -2123,7 +2171,6 @@ lwip_select(int maxfdp1, fd_set *readset, fd_set *writeset, fd_set *exceptset,
               sock->select_waiting--;
             }
             SYS_ARCH_UNPROTECT(lev);
-            done_socket(sock);
           } else {
             SYS_ARCH_UNPROTECT(lev);
             /* Not a valid socket */
@@ -2160,6 +2207,11 @@ lwip_select(int maxfdp1, fd_set *readset, fd_set *writeset, fd_set *exceptset,
         /* See what's set now after waiting */
         nready = lwip_selscan(maxfdp1, readset, writeset, exceptset, &lreadset, &lwriteset, &lexceptset);
         LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_select: nready=%d\n", nready));
+        if (nready < 0) {
+          set_errno(EBADF);
+          lwip_select_dec_sockets_used(maxfdp1, &used_sockets);
+          return -1;
+        }
       }
     }
   }

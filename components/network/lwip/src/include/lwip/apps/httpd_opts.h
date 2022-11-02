@@ -197,7 +197,7 @@
 
 /** Enable https support? */
 #if !defined HTTPD_ENABLE_HTTPS || defined __DOXYGEN__
-#define HTTPD_ENABLE_HTTPS                  1
+#define HTTPD_ENABLE_HTTPS                  0
 #endif
 
 /** Maximum retries before the connection is aborted/closed.

@@ -120,6 +120,7 @@ typedef void (*lwip_thread_fn)(void *arg);
 
 #else /* LWIP_COMPAT_MUTEX */
 
+
 /**
  * @ingroup sys_mutex
  * Create a new mutex.
@@ -444,6 +445,10 @@ u32_t sys_jiffies(void);
  * timestamps, internal timeouts for NO_SYS==1).
  */
 u32_t sys_now(void);
+
+void sys_arch_check_core_locked(void);
+
+void sys_arch_mark_core(void);
 
 /* Critical Region Protection */
 /* These functions must be implemented in the sys_arch.c file.

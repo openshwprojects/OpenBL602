@@ -47,6 +47,8 @@ xTaskHandle xTaskGetCurrentTaskHandle( void ) PRIVILEGED_FUNCTION;
 #define SYS_THREAD_MAX 6
 
 static u16_t s_nextthread = 0;
+static TaskHandle_t lwip_marked_core_thread = NULL;
+static TaskHandle_t lwip_core_lock_holder_thread = NULL;
 
 
 /*-----------------------------------------------------------------------------------*/
@@ -469,4 +471,13 @@ u32_t sys_now(void)
 {
     //FIXME any idea about efficiency
     return xTaskGetTickCount() / portTICK_PERIOD_MS;
+}
+
+void sys_arch_check_core_locked(void)
+{
+
+}
+
+void sys_arch_mark_core(void)
+{
 }

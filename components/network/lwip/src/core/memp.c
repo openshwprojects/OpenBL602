@@ -75,6 +75,7 @@
 #include "lwip/ip6_frag.h"
 #include "lwip/mld6.h"
 
+
 #define LWIP_MEMPOOL(name,num,size,desc) LWIP_MEMPOOL_DECLARE(name,num,size,desc)
 #include "lwip/priv/memp_std.h"
 
@@ -445,3 +446,38 @@ memp_free(memp_t type, void *mem)
   }
 #endif
 }
+
+#define cmd_printf(...) do{\
+                           if (xWriteBufferLen > 0) {\
+                               snprintf(pcWriteBuffer, xWriteBufferLen, __VA_ARGS__);\
+                               xWriteBufferLen-= strlen(pcWriteBuffer);\
+                               pcWriteBuffer+= strlen(pcWriteBuffer);\
+                           }\
+                       }while(0)
+
+void memp_dump_Command( char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv )
+{
+    int i;
+    struct memp_desc* tmp;
+
+    SYS_ARCH_DECL_PROTECT(old_level);
+    SYS_ARCH_PROTECT(old_level);
+
+    cmd_printf("%-16s total used addr       size\r\n", "Name");
+    cmd_printf("----------------------------------------------------\r\n");
+    for(i=0; i<MEMP_MAX; i++) {
+        tmp = (struct memp_desc*)memp_pools[i];
+        cmd_printf("%-16s %-5d %-4d 0x%08x %-4d\r\n",
+            tmp->desc, tmp->num, tmp->stats->used,
+            (unsigned int)tmp->base, tmp->size);
+    }
+
+    cmd_printf("===== MEM ======\r\n");
+    cmd_printf("avail %d, used %d, max %d\r\n",
+                    lwip_stats.mem.avail,
+                    lwip_stats.mem.used,
+                    lwip_stats.mem.max);
+
+    SYS_ARCH_UNPROTECT(old_level);
+}
+

@@ -1,180 +1,366 @@
+/*
+ * Copyright (c) 2001-2003 Swedish Institute of Computer Science.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
+ * SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
+ * OF SUCH DAMAGE.
+ *
+ * This file is part of the lwIP TCP/IP stack.
+ *
+ * Author: Adam Dunkels <adam@sics.se>
+ *
+ */
 #ifndef __LWIPOPTS_H__
 #define __LWIPOPTS_H__
+
+#define LWIP_SUPPORT_CUSTOM_PBUF	1
+
+/**
+ * Loopback demo related options.
+ */
+#define LWIP_NETIF_LOOPBACK             1
+#define LWIP_HAVE_LOOPIF                1
+#define LWIP_NETIF_LOOPBACK_MULTITHREADING       1
+#define LWIP_LOOPBACK_MAX_PBUFS         8
+
+#define TCPIP_THREAD_NAME               "tcp/ip"
+#define TCPIP_THREAD_STACKSIZE          768
+#define TCPIP_THREAD_PRIO               7
+
+#define DEFAULT_THREAD_STACKSIZE        200
+#define DEFAULT_THREAD_PRIO             1
+
+/* Disable lwIP asserts */
+#define LWIP_NOASSERT			1
+
+#define LWIP_DEBUG                      LWIP_DBG_ON
+#define LWIP_DEBUG_TRACE                0
+#define SOCKETS_DEBUG                   LWIP_DBG_OFF // | LWIP_DBG_MASK_LEVEL
+
+#define IP_DEBUG                        LWIP_DBG_OFF
+#define ETHARP_DEBUG                    LWIP_DBG_OFF
+#define NETIF_DEBUG                     LWIP_DBG_OFF
+#define PBUF_DEBUG                      LWIP_DBG_OFF
+#define MEMP_DEBUG                      LWIP_DBG_OFF
+#define API_LIB_DEBUG                   LWIP_DBG_OFF
+#define API_MSG_DEBUG                   LWIP_DBG_OFF
+#define ICMP_DEBUG                      LWIP_DBG_OFF
+#define IGMP_DEBUG                      LWIP_DBG_OFF
+#define INET_DEBUG                      LWIP_DBG_OFF
+#define IP_REASS_DEBUG                  LWIP_DBG_OFF
+#define RAW_DEBUG                       LWIP_DBG_OFF
+#define MEM_DEBUG                       LWIP_DBG_OFF
+#define SYS_DEBUG                       LWIP_DBG_OFF
+#define TCP_DEBUG                       LWIP_DBG_OFF
+#define TCP_INPUT_DEBUG                 LWIP_DBG_OFF
+#define TCP_FR_DEBUG                    LWIP_DBG_OFF
+#define TCP_RTO_DEBUG                   LWIP_DBG_OFF
+#define TCP_CWND_DEBUG                  LWIP_DBG_OFF
+#define TCP_WND_DEBUG                   LWIP_DBG_OFF
+#define TCP_OUTPUT_DEBUG                LWIP_DBG_OFF
+#define TCP_RST_DEBUG                   LWIP_DBG_OFF
+#define TCP_QLEN_DEBUG                  LWIP_DBG_OFF
+#define UDP_DEBUG                       LWIP_DBG_OFF
+#define TCPIP_DEBUG                     LWIP_DBG_OFF
+#define PPP_DEBUG                       LWIP_DBG_OFF
+#define SLIP_DEBUG                      LWIP_DBG_OFF
+#define DHCP_DEBUG                      LWIP_DBG_OFF
+#define AUTOIP_DEBUG                    LWIP_DBG_OFF
+#define SNMP_MSG_DEBUG                  LWIP_DBG_OFF
+#define SNMP_MIB_DEBUG                  LWIP_DBG_OFF
+#define DNS_DEBUG                       LWIP_DBG_OFF
 
 /**
  * SYS_LIGHTWEIGHT_PROT==1: if you want inter-task protection for certain
  * critical regions during buffer allocation, deallocation and memory
  * allocation and deallocation.
  */
-#define SYS_LIGHTWEIGHT_PROT    1
+#define SYS_LIGHTWEIGHT_PROT            1
 
-#define LWIP_NETIF_HOSTNAME     1
-#define ETHARP_TRUST_IP_MAC     0
-#define IP_REASSEMBLY           0
-#define IP_FRAG                 0
-#define ARP_QUEUEING            0
-#define LWIP_NETIF_API          1
+/*
+   ------------------------------------
+   ---------- Memory options ----------
+   ------------------------------------
+*/
 
-#define LWIP_MDNS_RESPONDER     1
-#define LWIP_IGMP               1
-//#define LWIP_AUTOIP             1
-////#define LWIP_IPV6_MLD           1
-#define LWIP_NUM_NETIF_CLIENT_DATA      1
-
-#define LWIP_ALTCP                      1
-#define LWIP_ALTCP_TLS                  1
 /**
- * NO_SYS==1: Provides VERY minimal functionality. Otherwise,
- * use lwIP facilities.
+ * MEM_ALIGNMENT: should be set to the alignment of the CPU
+ *    4 byte alignment -> #define MEM_ALIGNMENT 4
+ *    2 byte alignment -> #define MEM_ALIGNMENT 2
  */
-#define NO_SYS                  0
+#define MEM_ALIGNMENT                   4
 
-#define LWIP_TIMEVAL_PRIVATE    0
+#define MAX_SOCKETS_TCP                12
+#define MAX_LISTENING_SOCKETS_TCP       4
+#define MAX_SOCKETS_UDP                22
 
-#define LWIP_HAVE_LOOPIF           1
-
-/**
- * LWIP_TCPIP_CORE_LOCKING_INPUT: when LWIP_TCPIP_CORE_LOCKING is enabled,
- * this lets tcpip_input() grab the mutex for input packets as well,
- * instead of allocating a message and passing it to tcpip_thread.
+/* Value of TCP_SND_BUF_COUNT denotes the number of buffers and is set by
+ * CONFIG option available in the SDK
+ */
+#define TCP_SND_BUF_COUNT              12
+/* Buffer size needed for TCP: Max. number of TCP sockets * Size of pbuf *
+ * Max. number of TCP sender buffers per socket
  *
- * ATTENTION: this does not work when tcpip_input() is called from
- * interrupt context!
+ * Listening sockets for TCP servers do not require the same amount buffer
+ * space. Hence do not consider these sockets for memory computation
  */
-#define LWIP_TCPIP_CORE_LOCKING_INPUT   0
+#define TCP_MEM_SIZE     (MAX_SOCKETS_TCP * \
+							PBUF_POOL_BUFSIZE * (TCP_SND_BUF/TCP_MSS))
 
-/* ---------- Memory options ---------- */
-/* MEM_ALIGNMENT: should be set to the alignment of the CPU for which
-   lwIP is compiled. 4 byte alignment -> define MEM_ALIGNMENT to 4, 2
-   byte alignment -> define MEM_ALIGNMENT to 2. */
-#define MEM_ALIGNMENT           4
+/* Buffer size needed for UDP: Max. number of UDP sockets * Size of pbuf
+ */
+#define UDP_MEM_SIZE (MAX_SOCKETS_UDP * PBUF_POOL_BUFSIZE)
 
-/* MEM_SIZE: the size of the heap memory. If the application will send
-a lot of data that needs to be copied, this should be set high. */
-#define MEM_SIZE                (8*1024)
+/**
+ * MEM_SIZE: the size of the heap memory. If the application will send
+ * a lot of data that needs to be copied, this should be set high.
+ */
 
-/* MEMP_NUM_PBUF: the number of memp struct pbufs. If the application
-   sends a lot of data out of ROM (or other static memory), this
-   should be set high. */
-#define MEMP_NUM_PBUF           26
-/* MEMP_NUM_UDP_PCB: the number of UDP protocol control blocks. One
-   per active UDP "connection". */
-#define MEMP_NUM_UDP_PCB        6
-/* MEMP_NUM_TCP_PCB: the number of simulatenously active TCP
-   connections. */
-#define MEMP_NUM_TCP_PCB        10
-/* MEMP_NUM_TCP_PCB_LISTEN: the number of listening TCP
-   connections. */
-#define MEMP_NUM_TCP_PCB_LISTEN 5
-/* MEMP_NUM_TCP_SEG: the number of simultaneously queued TCP
-   segments. */
-#define MEMP_NUM_TCP_SEG        32
+#define MEM_SIZE                       (16*1024)
 
-/* NUM of sys_timeout pool*/
-#define MEMP_NUM_SYS_TIMEOUT            (LWIP_NUM_SYS_TIMEOUT_INTERNAL + 8 + 3)
 
-#define MEMP_NUM_NETCONN    (MEMP_NUM_TCP_PCB + MEMP_NUM_UDP_PCB + MEMP_NUM_TCP_PCB_LISTEN) 
 
-/* ---------- Pbuf options ---------- */
-/* PBUF_POOL_SIZE: the number of buffers in the pbuf pool. */
-#if !defined PBUF_POOL_SIZE
-#define PBUF_POOL_SIZE          0
+/*
+   ------------------------------------------------
+   ---------- Internal Memory Pool Sizes ----------
+   ------------------------------------------------
+*/
+/**
+ * MEMP_NUM_PBUF: the number of memp struct pbufs (used for PBUF_ROM and PBUF_REF).
+ * If the application sends a lot of data out of ROM (or other static memory),
+ * this should be set high.
+ */
+#define MEMP_NUM_PBUF                   12
+
+/**
+ * MEMP_NUM_TCP_PCB: the number of simulatenously active TCP connections.
+ * (requires the LWIP_TCP option)
+ */
+#define MEMP_NUM_TCP_PCB                 MAX_SOCKETS_TCP
+#define MEMP_NUM_TCP_PCB_LISTEN          MAX_LISTENING_SOCKETS_TCP
+
+/**
+ * MEMP_NUM_TCP_SEG: the number of simultaneously queued TCP segments.
+ * (requires the LWIP_TCP option)
+ */
+
+/**
+ * MEMP_NUM_TCPIP_MSG_INPKT: the number of struct tcpip_msg, which are used
+ * for incoming packets. 
+ * (only needed if you use tcpip.c)
+ */
+
+#define MEMP_NUM_TCPIP_MSG_INPKT        20
+
+/**
+ * MEMP_NUM_SYS_TIMEOUT: the number of simulateously active timeouts.
+ * (requires NO_SYS==0)
+ */
+#define MEMP_NUM_SYS_TIMEOUT            16
+
+/**
+ * MEMP_NUM_NETBUF: the number of struct netbufs.
+ * (only needed if you use the sequential API, like api_lib.c)
+ */
+
+#define MEMP_NUM_NETBUF                 20
+
+/**
+ * MEMP_NUM_NETCONN: the number of struct netconns.
+ * (only needed if you use the sequential API, like api_lib.c)
+ *
+ * This number corresponds to the maximum number of active sockets at any
+ * given point in time. This number must be sum of max. TCP sockets, max. TCP
+ * sockets used for listening, and max. number of UDP sockets
+ */
+#define MEMP_NUM_NETCONN	(MAX_SOCKETS_TCP + \
+	MAX_LISTENING_SOCKETS_TCP + MAX_SOCKETS_UDP)
+
+/**
+ * PBUF_POOL_SIZE: the number of buffers in the pbuf pool.
+ */
+
+#define PBUF_POOL_SIZE                  3
+
+
+/*
+   ----------------------------------
+   ---------- Pbuf options ----------
+   ----------------------------------
+*/
+
+/**
+ * PBUF_POOL_BUFSIZE: the size of each pbuf in the pbuf pool. The default is
+ * designed to accomodate single full size TCP frame in one pbuf, including
+ * TCP_MSS, IP header, and link header.
+ */
+#define PBUF_POOL_BUFSIZE               1580
+
+
+/*
+   ---------------------------------
+   ---------- RAW options ----------
+   ---------------------------------
+*/
+/**
+ * LWIP_RAW==1: Enable application layer to hook into the IP layer itself.
+ */
+#define LWIP_RAW                        1
+#ifdef CONFIG_IPV6
+#define LWIP_IPV6                       1
 #endif
 
-/* PBUF_POOL_BUFSIZE: the size of each pbuf in the pbuf pool. */
-#define PBUF_POOL_BUFSIZE       760
+/* Enable IPv4 Auto IP	*/
+#ifdef CONFIG_AUTOIP
+#define LWIP_AUTOIP                     1
+#define LWIP_DHCP_AUTOIP_COOP           1
+#define LWIP_DHCP_AUTOIP_COOP_TRIES		5
+#endif
 
-
-/* ---------- TCP options ---------- */
-#define LWIP_TCP                1
-#define TCP_TTL                 255
-
-/* Controls if TCP should queue segments that arrive out of
-   order. Define to 0 if your device is low on memory. */
-#define TCP_QUEUE_OOSEQ         1
-
-/* TCP Maximum segment size. */
-#define TCP_MSS                 (1500 - 40)	  /* TCP_MSS = (Ethernet MTU - IP header size - TCP header size) */
-//#define TCP_MSS                 (1500 - 80)	  /* TCP_MSS = (Ethernet MTU - IP header size - TCP header size) */
-//#define TCP_MSS                 (800 - 40 - 80 + 8)	  /* TCP_MSS = (Ethernet MTU - IP header size - TCP header size) */
-
-/* TCP sender buffer space (bytes). */
-#define TCP_SND_BUF             (3*TCP_MSS)
-
-/*  TCP_SND_QUEUELEN: TCP sender buffer space (pbufs). This must be at least
-  as much as (2 * TCP_SND_BUF/TCP_MSS) for things to work. */
-
-#define TCP_SND_QUEUELEN        ((2 * (TCP_SND_BUF) + (TCP_MSS - 1))/(TCP_MSS))
-
-#define MEMP_NUM_TCPIP_MSG_INPKT        (32)
+/*
+   ------------------------------------
+   ---------- Socket options ----------
+   ------------------------------------
+*/
+/**
+ * LWIP_SOCKET==1: Enable Socket API (require to use sockets.c)
+ */
+#define LWIP_SOCKET                     1
+#define LWIP_NETIF_API	                1
 
 /**
- * TCP_SNDQUEUELOWAT: TCP writable bufs (pbuf count). This must be less
- * than TCP_SND_QUEUELEN. If the number of pbufs queued on a pcb drops below
- * this number, select returns writable (combined with TCP_SNDLOWAT).
+ * LWIP_RECV_CB==1: Enable callback when a socket receives data.
  */
-#define TCP_SNDQUEUELOWAT               ((TCP_SND_QUEUELEN)/2)
-
-/* TCP receive window. */
-#define TCP_WND                 (3*TCP_MSS)
+#define LWIP_RECV_CB                    1
+/**
+ * SO_REUSE==1: Enable SO_REUSEADDR option.
+ */
+#define SO_REUSE                        1
+#define SO_REUSE_RXTOALL 				1
 
 /**
- * TCP_WND_UPDATE_THRESHOLD: difference in window to trigger an
- * explicit window update
+ * Enable TCP_KEEPALIVE
  */
-#define TCP_WND_UPDATE_THRESHOLD   LWIP_MIN((TCP_WND / 2), (TCP_MSS * 6))
+#define LWIP_TCP_KEEPALIVE              1
+
+/*
+   ----------------------------------------
+   ---------- Statistics options ----------
+   ----------------------------------------
+*/
+/**
+ * LWIP_STATS==1: Enable statistics collection in lwip_stats.
+ */
+#define LWIP_STATS                      1
 
 /**
- * By default, TCP socket/netconn close waits 20 seconds max to send the FIN
+ * LWIP_STATS_DISPLAY==1: Compile in the statistics output functions.
  */
-#define LWIP_TCP_CLOSE_TIMEOUT_MS_DEFAULT 5000
+#define LWIP_STATS_DISPLAY              0
+
+/*
+   ----------------------------------
+   ---------- DHCP options ----------
+   ----------------------------------
+*/
+/**
+ * LWIP_DHCP==1: Enable DHCP module.
+ */
+#define LWIP_DHCP                       1
+#define LWIP_NETIF_STATUS_CALLBACK      1
+
+/**
+ * DNS related options, revisit later to fine tune.
+ */
+#define LWIP_DNS                        1
+#define DNS_TABLE_SIZE                  2  // number of table entries, default 4
+//#define DNS_MAX_NAME_LENGTH            64  // max. name length, default 256
+#define DNS_MAX_SERVERS                 2  // number of DNS servers, default 2
+#define DNS_DOES_NAME_CHECK             1  // compare received name with given,def 0 
+#define DNS_MSG_SIZE                  512
+#define MDNS_MSG_SIZE                 512
+
+#define MDNS_TABLE_SIZE                 1  // number of mDNS table entries
+#define MDNS_MAX_SERVERS                1  // number of mDNS multicast addresses
+/* TODO: Number of active UDP PCBs is equal to number of active UDP sockets plus
+ * two. Need to find the users of these 2 PCBs
+ */
+#define MEMP_NUM_UDP_PCB		(MAX_SOCKETS_UDP + 2)
+/* NOTE: some times the socket() call for SOCK_DGRAM might fail if you dont
+ * have enough MEMP_NUM_UDP_PCB */
+
+/*
+   ----------------------------------
+   ---------- IGMP options ----------
+   ----------------------------------
+*/
+/**
+ * LWIP_IGMP==1: Turn on IGMP module.
+ */
+#define LWIP_IGMP                       1
 
 /**
  * LWIP_SO_SNDTIMEO==1: Enable send timeout for sockets/netconns and
  * SO_SNDTIMEO processing.
  */
 #define LWIP_SO_SNDTIMEO                1
+
 /**
  * LWIP_SO_RCVTIMEO==1: Enable receive timeout for sockets/netconns and
  * SO_RCVTIMEO processing.
  */
 #define LWIP_SO_RCVTIMEO                1
-
-
-/* ---------- ICMP options ---------- */
-#define LWIP_ICMP                       1
-
-
-/* ---------- DHCP options ---------- */
-/* Define LWIP_DHCP to 1 if you want DHCP configuration of
-   interfaces. DHCP is not implemented in lwIP 0.5.1, however, so
-   turning this on does currently not work. */
-#define LWIP_DHCP               1
-
-
-/* ---------- UDP options ---------- */
-#define LWIP_UDP                1
-#define UDP_TTL                 255
-
-
-/* ---------- Statistics options ---------- */
-#define LWIP_STATS 1
-#define LWIP_PROVIDE_ERRNO 1
-
-/* ---------- link callback options ---------- */
-/* LWIP_NETIF_LINK_CALLBACK==1: Support a callback function from an interface
- * whenever the link changes (i.e., link down)
+#define LWIP_SO_SNDTIMEO                1
+/**
+ * TCP_LISTEN_BACKLOG==1: Handle backlog connections.
  */
-#define LWIP_NETIF_LINK_CALLBACK        1
+#define TCP_LISTEN_BACKLOG		        1
+#define LWIP_PROVIDE_ERRNO		        0
+
+#include <errno.h>
+#define ERRNO				            1
+
+//#define LWIP_SNMP 1
+
 
 /*
-   --------------------------------------
-   ---------- Checksum options ----------
-   --------------------------------------
+   ------------------------------------------------
+   ---------- Network Interfaces options ----------
+   ------------------------------------------------
 */
+/**
+ * LWIP_NETIF_HOSTNAME==1: use DHCP_OPTION_HOSTNAME with netif's hostname
+ * field.
+ */
+#define LWIP_NETIF_HOSTNAME             1
 
-#define LWIP_CHECKSUM_ON_COPY            1
-#define LWIP_NETIF_TX_SINGLE_PBUF    1
+
+/*
+The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums by hardware:
+ - To use this feature let the following define uncommented.
+ - To disable it and process by CPU comment the  the checksum.
+*/
+//#define CHECKSUM_BY_HARDWARE
+
 
 #ifdef CHECKSUM_BY_HARDWARE
   /* CHECKSUM_GEN_IP==0: Generate checksums by hardware for outgoing IP packets.*/
@@ -182,15 +368,13 @@ a lot of data that needs to be copied, this should be set high. */
   /* CHECKSUM_GEN_UDP==0: Generate checksums by hardware for outgoing UDP packets.*/
   #define CHECKSUM_GEN_UDP                0
   /* CHECKSUM_GEN_TCP==0: Generate checksums by hardware for outgoing TCP packets.*/
-  #define CHECKSUM_GEN_TCP                0 
+  #define CHECKSUM_GEN_TCP                0
   /* CHECKSUM_CHECK_IP==0: Check checksums by hardware for incoming IP packets.*/
   #define CHECKSUM_CHECK_IP               0
   /* CHECKSUM_CHECK_UDP==0: Check checksums by hardware for incoming UDP packets.*/
   #define CHECKSUM_CHECK_UDP              0
   /* CHECKSUM_CHECK_TCP==0: Check checksums by hardware for incoming TCP packets.*/
   #define CHECKSUM_CHECK_TCP              0
-  /* CHECKSUM_CHECK_ICMP==0: Check checksums by hardware for incoming ICMP packets.*/
-  #define CHECKSUM_GEN_ICMP               0
 #else
   /* CHECKSUM_GEN_IP==1: Generate checksums in software for outgoing IP packets.*/
   #define CHECKSUM_GEN_IP                 1
@@ -204,89 +388,54 @@ a lot of data that needs to be copied, this should be set high. */
   #define CHECKSUM_CHECK_UDP              1
   /* CHECKSUM_CHECK_TCP==1: Check checksums in software for incoming TCP packets.*/
   #define CHECKSUM_CHECK_TCP              1
-  /* CHECKSUM_CHECK_ICMP==1: Check checksums by hardware for incoming ICMP packets.*/
-  #define CHECKSUM_GEN_ICMP               1
 #endif
 
-
-/*
-   ----------------------------------------------
-   ---------- Sequential layer options ----------
-   ----------------------------------------------
-*/
-#define LWIP_CHKSUM_ALGORITHM 3
-
 /**
- * LWIP_NETCONN==1: Enable Netconn API (require to use api_lib.c)
+ * TCP_RESOURCE_FAIL_RETRY_LIMIT: limit for retrying sending of tcp segment
+ * on resource failure error returned by driver.
  */
-#define LWIP_NETCONN                    1
+#define TCP_RESOURCE_FAIL_RETRY_LIMIT     50
 
-/*
-   ------------------------------------
-   ---------- Socket options ----------
-   ------------------------------------
-*/
-/**
- * LWIP_SOCKET==1: Enable Socket API (require to use sockets.c)
- */
-#define LWIP_SOCKET                     1
+//#ifdef CONFIG_ENABLE_MXCHIP
+/* save memory */
+///#define PBUF_POOL_SIZE          (3)
+#define TCP_MSS                (1500 - 40)
+/* TCP receive window. */
+#define TCP_WND              (3 * TCP_MSS)
+/* TCP sender buffer space (bytes). */
+#define TCP_SND_BUF         (10 * TCP_MSS)
 
-/*
-   -----------------------------------
-   ---------- DEBUG options ----------
-   -----------------------------------
-*/
+#define TCP_SND_QUEUELEN              (40)
 
-//#define LWIP_DEBUG                      0
+/* ARP before DHCP causes multi-second delay  - turn it off */
+#define DHCP_DOES_ARP_CHECK            (0)
 
+#define TCP_MAX_ACCEPT_CONN             5
+#define MEMP_NUM_TCP_SEG               (TCP_SND_QUEUELEN*2)
 
-/*
-   ---------------------------------
-   ---------- OS options ----------
-   ---------------------------------
-*/
+#define IP_REASS_MAX_PBUFS              0
+#define IP_REASSEMBLY                   0
+#define IP_REASS_MAX_PBUFS              0
+#define IP_REASSEMBLY                   0
+#define MEMP_NUM_REASSDATA              0
+#define IP_FRAG                         0
 
-#define TCPIP_THREAD_NAME              "TCP/IP"
-#define TCPIP_THREAD_STACKSIZE          1000
-#define TCPIP_MBOX_SIZE                 50
-#define DEFAULT_UDP_RECVMBOX_SIZE       2000
-#define DEFAULT_TCP_RECVMBOX_SIZE       2000
-#define DEFAULT_ACCEPTMBOX_SIZE         2000
-#define DEFAULT_THREAD_STACKSIZE        500
-#define TCPIP_THREAD_PRIO               (configMAX_PRIORITIES - 2) 
+#define MEM_LIBC_MALLOC                (0)
 
-#define LWIP_COMPAT_MUTEX               0
-#define LWIP_TCPIP_CORE_LOCKING         0
-#define LWIP_SOCKET_SET_ERRNO           1
-#define SO_REUSE                        1
-#define LWIP_TCP_KEEPALIVE              1
+#define DEFAULT_UDP_RECVMBOX_SIZE       3 //each udp socket max buffer 3 packets.
 
-/*Enable Status callback and link callback*/
-#define LWIP_NETIF_STATUS_CALLBACK      1
-#define LWIP_NETIF_LINK_CALLBACK        1
-/*Enable dns*/
-#define LWIP_DNS                        1
-#define LWIP_DNS_SECURE                 0
+#define MEMP_MEM_MALLOC                 (0)
+#define TCP_MSL (TCP_TMR_INTERVAL)
 
-#define MEMP_MEM_MALLOC                 0
-#define LWIP_SUPPORT_CUSTOM_PBUF        1
+#define LWIP_COMPAT_MUTEX_ALLOWED       (1)
 
-#define PBUF_LINK_ENCAPSULATION_HLEN    128u
+#define MEMP_STATS                            1
+#define MEM_STATS                             1
 
-#define LWIP_RAW                        1
+#define LWIP_DONT_PROVIDE_BYTEORDER_FUNCTIONS
 
-/*
-   ---------------------------------
-   ---------- MISC. options ----------
-   ---------------------------------
-*/
-/**
- * LWIP_RANDOMIZE_INITIAL_LOCAL_PORTS==1: randomize the local port for the first
- * local TCP/UDP pcb (default==0). This can prevent creating predictable port
- * numbers after booting a device.
- */
-extern int bl_rand();
-#define LWIP_RANDOMIZE_INITIAL_LOCAL_PORTS 1
-#define LWIP_RAND() ((u32_t)bl_rand())
+#define ETHARP_SUPPORT_STATIC_ENTRIES         1
+#define LWIP_RANDOMIZE_INITIAL_LOCAL_PORTS    1
 
 #endif /* __LWIPOPTS_H__ */
+

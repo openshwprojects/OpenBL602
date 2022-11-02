@@ -40,7 +40,7 @@
 
 static void cmd_netstat(char *buf, int len, int argc, char **argv) 
 {
-  tcpip_callback(stats_netstat, NULL);
+  //tcpip_callback(stats_netstat, NULL);
 }
 
 // STATIC_CLI_CMD_ATTRIBUTE makes this(these) command(s) static

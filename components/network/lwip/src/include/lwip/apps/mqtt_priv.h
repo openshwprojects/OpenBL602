@@ -39,6 +39,7 @@
 
 #include "lwip/apps/mqtt.h"
 #include "lwip/altcp.h"
+#include <FreeRTOS.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,6 +62,7 @@ struct mqtt_request_t
 
 /** Ring buffer */
 struct mqtt_ringbuf_t {
+  SemaphoreHandle_t g_mutex; 
   u16_t put;
   u16_t get;
   u8_t buf[MQTT_OUTPUT_RINGBUF_SIZE];

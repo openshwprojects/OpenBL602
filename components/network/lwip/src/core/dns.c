@@ -97,6 +97,10 @@
 
 #include <string.h>
 
+#ifndef LWIP_RAND
+#define LWIP_RAND rand
+#endif
+
 /** Random generator function to create random TXIDs and source ports for queries */
 #ifndef DNS_RAND_TXID
 #if ((LWIP_DNS_SECURE & LWIP_DNS_SECURE_RAND_XID) != 0)

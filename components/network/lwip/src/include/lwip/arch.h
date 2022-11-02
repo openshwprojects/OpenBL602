@@ -90,7 +90,7 @@
  */
 #ifndef LWIP_PLATFORM_ASSERT
 #define LWIP_PLATFORM_ASSERT(x) do {printf("Assertion \"%s\" failed at line %d in %s\n", \
-                                     x, __LINE__, "file21"); fflush(NULL); abort();} while(0)
+                                     x, __LINE__, __FILE__); fflush(NULL); abort();} while(0)
 #include <stdio.h>
 #include <stdlib.h>
 #endif
@@ -199,9 +199,7 @@ typedef uintptr_t mem_ptr_t;
 #include <unistd.h>
 #endif
 #else /* SSIZE_MAX */
-#if !__riscv_xlen || __riscv_xlen != 64
 typedef int ssize_t;
-#endif
 #define SSIZE_MAX INT_MAX
 #endif /* SSIZE_MAX */
 
@@ -270,7 +268,7 @@ typedef int ssize_t;
  * \#define LWIP_DECLARE_MEMORY_ALIGNED(variable_name, size) u32_t variable_name[(size + sizeof(u32_t) - 1) / sizeof(u32_t)]
  */
 #ifndef LWIP_DECLARE_MEMORY_ALIGNED
-#define LWIP_DECLARE_MEMORY_ALIGNED(variable_name, size) u8_t variable_name[LWIP_MEM_ALIGN_BUFFER(size)] __attribute__((section(".wifi_ram")))
+#define LWIP_DECLARE_MEMORY_ALIGNED(variable_name, size) u8_t variable_name[LWIP_MEM_ALIGN_BUFFER(size)]
 #endif
 
 /** Calculate memory size for an aligned buffer - returns the next highest

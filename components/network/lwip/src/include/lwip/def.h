@@ -58,6 +58,12 @@
 #define PERF_STOP(x)  /* null definition */
 #endif /* LWIP_PERF */
 
+#define htons(x) lwip_htons(x)
+#define htons(x) lwip_htons(x)
+#define ntohs(x) lwip_ntohs(x)
+#define htonl(x) lwip_htonl(x)
+#define ntohl(x) lwip_ntohl(x)
+
 #ifdef __cplusplus
 extern "C" {
 #endif

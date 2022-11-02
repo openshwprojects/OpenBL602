@@ -44,15 +44,6 @@
 #include "lwip/stats.h"
 #include "lwip/mem.h"
 #include "lwip/debug.h"
-#if LWIP_TCP
-#include "lwip/tcp.h"
-#endif
-#if LWIP_UDP
-#include "lwip/udp.h"
-#endif
-#if LWIP_RAW
-#include "lwip/raw.h"
-#endif
 
 #include <string.h>
 
@@ -172,70 +163,7 @@ stats_display(void)
   }
   SYS_STATS_DISPLAY();
 }
-
 #endif /* LWIP_STATS_DISPLAY */
-
-void
-stats_netstat(void *ctx)
-{
-  LWIP_UNUSED_ARG(ctx);
-  LWIP_ASSERT_CORE_LOCKED();
-
-  int i                    = 0;
-  char ip_str[128]         = {0};
-#if LWIP_TCP
-  struct tcp_pcb **const*_tcp_pcb_list = NULL;
-  struct tcp_pcb *curr_tcp = NULL;
-  int tcp_pcb_num = tcp_get_pcbs(&_tcp_pcb_list);
-#endif
-#if LWIP_UDP
-  struct udp_pcb *_udp_pcbs = udp_get_pcbs();
-  struct udp_pcb *curr_udp = NULL; 
-#endif
-#if LWIP_RAW
-  struct raw_pcb *_raw_pcbs = raw_get_pcbs();
-  struct raw_pcb *curr_raw = NULL; 
-#endif
-  LWIP_PLATFORM_DIAG(("netstat tools\r\n"));
-
-  /* foreach tcp/udp/raw control block */
-#if LWIP_TCP
-  // TCP
-  for (i=0; i<tcp_pcb_num; i++) { 
-    // foreach pcb lists
-    for (curr_tcp = *_tcp_pcb_list[i]; curr_tcp != NULL; curr_tcp = curr_tcp->next) { 
-      ipaddr_ntoa_r(&curr_tcp->local_ip, ip_str, sizeof ip_str);
-      LWIP_PLATFORM_DIAG(("TCP\t%s:%"U16_F"\t", ip_str, curr_tcp->local_port));
-      
-      ipaddr_ntoa_r(&curr_tcp->remote_ip, ip_str, sizeof ip_str);
-      LWIP_PLATFORM_DIAG(("%s:%"U16_F"\t%s\r\n", ip_str, curr_tcp->remote_port, 
-            tcp_debug_state_str(curr_tcp->state)));
-    }
-  }
-#endif
-  
-#if LWIP_UDP
-  // UDP
-  for (curr_udp = _udp_pcbs; curr_udp != NULL; curr_udp = curr_udp->next) {
-    ipaddr_ntoa_r(&curr_udp->local_ip, ip_str, sizeof ip_str);
-    LWIP_PLATFORM_DIAG(("UDP\t%s:%"U16_F"\t", ip_str, curr_udp->local_port));
-    
-    ipaddr_ntoa_r(&curr_udp->remote_ip, ip_str, sizeof ip_str);
-    LWIP_PLATFORM_DIAG(("%s:%"U16_F"\r\n", ip_str, curr_udp->remote_port));
-  }
-#endif
-
-#if LWIP_RAW
-  // RAW
-  for (curr_raw = _raw_pcbs; curr_raw != NULL; curr_raw = curr_raw->next) {
-    ipaddr_ntoa_r(&curr_raw->local_ip, ip_str, sizeof ip_str);
-    LWIP_PLATFORM_DIAG(("RAW\t%s\t", ip_str));
-    
-    ipaddr_ntoa_r(&curr_raw->remote_ip, ip_str, sizeof ip_str);
-    LWIP_PLATFORM_DIAG(("%s\t%d\r\n", ip_str, curr_raw->protocol));
-  }
-#endif
-}
 
 #endif /* LWIP_STATS */
 

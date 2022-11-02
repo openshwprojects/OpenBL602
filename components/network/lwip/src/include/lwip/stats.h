@@ -475,7 +475,6 @@ void stats_display_igmp(struct stats_igmp *igmp, const char *name);
 void stats_display_mem(struct stats_mem *mem, const char *name);
 void stats_display_memp(struct stats_mem *mem, int index);
 void stats_display_sys(struct stats_sys *sys);
-void stats_netstat(void *ctx);
 #else /* LWIP_STATS_DISPLAY */
 #define stats_display()
 #define stats_display_proto(proto, name)
@@ -484,8 +483,6 @@ void stats_netstat(void *ctx);
 #define stats_display_memp(mem, index)
 #define stats_display_sys(sys)
 #endif /* LWIP_STATS_DISPLAY */
-
-void stats_netstat(void *ctx);
 
 #ifdef __cplusplus
 }

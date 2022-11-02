@@ -440,7 +440,7 @@ static void ipv6cp_init(ppp_pcb *pcb) {
     memset(ao, 0, sizeof(*ao));
 #endif /* 0 */
 
-    wo->accept_local = 0;
+    wo->accept_local = 1;
     wo->neg_ifaceid = 1;
     ao->neg_ifaceid = 1;
 
