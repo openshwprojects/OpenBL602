@@ -497,12 +497,6 @@ static void event_cb_wifi_event(input_event_t *event, void *private_data)
     }
 }
 
-static void __attribute__((unused)) cmd_aws(char *buf, int len, int argc, char **argv)
-{
-void aws_main_entry(void *arg);
-    xTaskCreate(aws_main_entry, (char*)"aws_iot", 4096, NULL, 10, NULL);
-}
-
 static void cmd_pka(char *buf, int len, int argc, char **argv)
 {
     bl_pka_test();
@@ -733,7 +727,6 @@ static void cmd_stack_wifi(char *buf, int len, int argc, char **argv)
 }
 
 const static struct cli_command cmds_userq[] STATIC_CLI_CMD_ATTRIBUTE = {
-        { "aws", "aws iot demo", cmd_aws},
         { "pka", "pka iot demo", cmd_pka},
         { "wifi", "wifi", cmd_wifi},
         { "sha", "sha iot demo", cmd_sha},
