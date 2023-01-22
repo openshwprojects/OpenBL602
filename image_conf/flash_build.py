@@ -976,7 +976,8 @@ class bl_whole_img_generate():
         dst_file = os.path.join(app_path, bin_build_out_path, "whole_{}.bin".format(file_finally_name))
         fp = open(dst_file, 'wb+')
         fp.write(whole_img_data)
-        print("Generating BIN File to %s" %(dst_file))
+        print("[bl_write_flash_img] whole_img_data size is " +str(len(whole_img_data)))
+        print("[bl_write_flash_img] Generating BIN File to %s" %(dst_file))
         fp.close()
 
     def bl_image_gen_cfg(self, raw_bin_name, bintype, key=None, iv=None, cfg_ini=None, cpu_type=None):
@@ -1201,6 +1202,7 @@ class bl_img_ota():
             FW_OTA_path = os.path.join(app_path, bin_build_out_path, "ota/{}/".format(file_finally_name) + cpu_type + "_OTA.bin")
         with open(FW_OTA_path, mode="rb") as bin_f:
             file_bytes = bin_f.read()
+            print("[bl_mfg_ota_xz_gen] the size of FW_OTA.bin data (file_bytes) is " +str(len(file_bytes)))
             for b in file_bytes:
                 fw_ota_bin.append(b)
         if cpu_type == None:
@@ -1209,9 +1211,10 @@ class bl_img_ota():
             FW_OTA_path = os.path.join(app_path, bin_build_out_path, "ota/{}/".format(file_finally_name) + cpu_type + "_OTA.bin.xz")
         with lzma.open(FW_OTA_path, mode="wb", check=lzma.CHECK_CRC32, filters=bl60x_xz_filters) as xz_f:
             xz_f.write(fw_ota_bin)
-        print("Generating BIN File to %s" %(FW_OTA_path))
+        print("[bl_mfg_ota_xz_gen]  Generating BIN File to %s" %(FW_OTA_path))
         with open(FW_OTA_path, mode="rb") as f:
             file_bytes = f.read()
+            print("[bl_mfg_ota_xz_gen] the size of xz data (after compression) is " +str(len(file_bytes)))
             for b in file_bytes:
                 fw_ota_bin_xz.append(b)
         fw_ota_bin_xz_ota = self.bl_mfg_ota_header(fw_ota_bin_xz, use_xz=1)
@@ -1221,9 +1224,10 @@ class bl_img_ota():
             FW_OTA_path = os.path.join(app_path, bin_build_out_path, "ota/{}/FW_OTA.bin.xz.ota".format(file_finally_name))
         else:
             FW_OTA_path = os.path.join(app_path, bin_build_out_path, "ota/{}/".format(file_finally_name) + cpu_type + "_OTA.bin.xz.ota")
+        print("[bl_mfg_ota_xz_gen] the size of fw_ota_bin_xz_ota data (with header) is " +str(len(fw_ota_bin_xz_ota)))
         with open(FW_OTA_path, mode="wb") as f:
             f.write(fw_ota_bin_xz_ota)
-        print("Generating BIN File to %s" %(FW_OTA_path))
+        print("[bl_mfg_ota_xz_gen]  Generating BIN File to %s" %(FW_OTA_path))
 
 
     def bl_mfg_ota_bin_gen(self, chipname="bl60x", chiptype="bl60x", cpu_type=None):
@@ -1257,6 +1261,7 @@ class bl_img_ota():
             img_fw_path = os.path.join(app_path, bin_build_out_path, "img_" + cpu_type.lower() + ".bin")
         with open(img_fw_path, mode="rb") as f:
             file_bytes = f.read()
+            print("[bl_mfg_ota_bin_gen] The len of " + img_fw_path + " is  " + str(len(file_bytes)))
             for b in file_bytes:
                 fw_ota_bin.append(b)
         fw_ota_bin_header = self.bl_mfg_ota_header(fw_ota_bin, use_xz=0)
@@ -1271,18 +1276,20 @@ class bl_img_ota():
             FW_OTA_path = os.path.join(FW_OTA_path, "FW_OTA.bin")
         else:
             FW_OTA_path = os.path.join(FW_OTA_path, cpu_type + "_OTA.bin")
+        print("[bl_mfg_ota_bin_gen] Will write " + str(len(fw_ota_bin)) + " to " +FW_OTA_path)
         with open(FW_OTA_path, mode="wb") as f:
             f.write(fw_ota_bin)
-        print("Generating BIN File to %s" %(FW_OTA_path))
+        print("[bl_mfg_ota_bin_gen] Generating BIN File to %s" %(FW_OTA_path))
         for b in fw_ota_bin:
             fw_ota_bin_header.append(b)
         if cpu_type == None:
             FW_OTA_path = os.path.join(app_path, bin_build_out_path, "ota/{}/FW_OTA.bin.ota".format(file_finally_name))
         else:
             FW_OTA_path = os.path.join(app_path, bin_build_out_path, "ota/{}/".format(file_finally_name) + cpu_type + "_OTA.bin.ota")
+        print("[bl_mfg_ota_bin_gen] Will write " + str(len(fw_ota_bin_header)) + " to " +FW_OTA_path)
         with open(FW_OTA_path, mode="wb") as f:
             f.write(fw_ota_bin_header)
-        print("Generating BIN File to %s" %(FW_OTA_path))
+        print("[bl_mfg_ota_bin_gen] Generating BIN File to %s" %(FW_OTA_path))
         self.bl_mfg_ota_xz_gen(chipname, chiptype, cpu_type)
 
 class bl_flash_select():
