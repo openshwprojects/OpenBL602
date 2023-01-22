@@ -45,7 +45,7 @@ include $(iot_link_root)/network/network.mk
 include $(iot_link_root)/oc/oc.mk
 
 #configure the ota	
-#include $(iot_link_root)/link_ota/build.mk
+include $(iot_link_root)/link_ota/build.mk
 
 #configure demos
 include $(iot_link_root)/demos/demos.mk

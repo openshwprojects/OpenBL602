@@ -1235,6 +1235,11 @@ class bl_img_ota():
             os.mkdir(ota_path)
 
         if cpu_type == None:
+            print("CPU mode is None");
+        else:
+            print("CPU mode custom");
+            
+        if cpu_type == None:
             bootinfo_fw_path = os.path.join(app_path, bin_build_out_path, "bootinfo.bin")
         else:
             bootinfo_fw_path = os.path.join(app_path, bin_build_out_path, "bootinfo_" + cpu_type.lower() + ".bin")
