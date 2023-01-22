@@ -756,14 +756,17 @@ class bl_img_create_do(bl_utils):
             seg_data_list = []
             while i < seg_cnt:
                 # read seg data and calculate crcdata
+                print("img_creat_process: step " +str(i)+"/"+str(seg_cnt)+" going to read " +segdata_file[i] +"")
                 seg_data = self.img_create_read_file_append_crc(segdata_file[i], 0)
                 padding_size = 0
+                print("img_creat_process: step " +str(i)+"/"+str(seg_cnt)+" raw len " +str(len(seg_data)) +" from " +segdata_file[i] +"")
                 if len(seg_data) % encrypt_blk_size != 0:
                     padding_size = encrypt_blk_size - \
                         len(seg_data) % encrypt_blk_size
                     seg_data += padding[0:padding_size]
                 segdata_crcarray = self.get_crc32_bytearray(seg_data)
                 seg_data_list.append(seg_data)
+                print("img_creat_process: step " +str(i)+"/"+str(seg_cnt)+" padded len " +str(len(seg_data)) +" from " +segdata_file[i] +"")
 
                 # read seg header and replace segdata's CRC
                 seg_header = self.img_create_read_file_append_crc(segheader_file[i], 0)
@@ -781,11 +784,14 @@ class bl_img_create_do(bl_utils):
                 data_toencrypt += seg_data_list[i]
                 i += 1
         else:
+            print("img_creat_process: single going to read " +segdata_file[0] +"")
             seg_data = self.img_create_read_file_append_crc(segdata_file[0], 0)
             padding_size = 0
+            print("img_creat_process: single raw len " +str(len(seg_data)) +" from " +segdata_file[0] +"")
             if len(seg_data) % encrypt_blk_size != 0:
                 padding_size = encrypt_blk_size - len(seg_data) % encrypt_blk_size
                 seg_data += padding[0:padding_size]
+            print("img_creat_process: single padded len " +str(len(seg_data)) +" from " +segdata_file[0] +"")
             data_toencrypt += seg_data
             seg_cnt = len(data_toencrypt)
 
