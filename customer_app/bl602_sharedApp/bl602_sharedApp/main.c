@@ -832,13 +832,15 @@ static void aos_loop_proc(void *pvParameters)
     __opt_feature_init();
     aos_loop_init();
 
-    fd_console = aos_open("/dev/ttyS0", 0);
-    if (fd_console >= 0) {
-        printf("Init CLI with event Driven\r\n");
-        aos_cli_init(0);
-        aos_poll_read_fd(fd_console, aos_cli_event_cb_read_get(), (void*)0x12345678);
-        _cli_init();
-    }
+	if(0) {
+		fd_console = aos_open("/dev/ttyS0", 0);
+		if (fd_console >= 0) {
+			printf("Init CLI with event Driven\r\n");
+			aos_cli_init(0);
+			aos_poll_read_fd(fd_console, aos_cli_event_cb_read_get(), (void*)0x12345678);
+			_cli_init();
+		}
+	}
 
     aos_register_event_filter(EV_WIFI, event_cb_wifi_event, NULL);
     cmd_stack_wifi(NULL, 0, 0, NULL);
