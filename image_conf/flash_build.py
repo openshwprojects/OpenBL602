@@ -386,6 +386,7 @@ class BFConfigParser():
             self.cfg_obj.filename = self.cfg_infile
         else:
             self.cfg_obj.filename = outfile
+        print("BFConfigParser::write: will write to "+self.cfg_obj.filename);
         self.cfg_obj.write()
 
 class PtCreater(bl_utils):
@@ -814,9 +815,19 @@ class bl_img_create_do(bl_utils):
             bootinfo_file_name = cfg.get(cfg_section, "bootinfo_file")
             fp = open(bootinfo_file_name, 'wb+')
             bootinfo = bootheader_data + pk_data + signature + aesiv_data
+            print("img_creat_process: (bootinfo_file_name) Going to append "+str(len(bootinfo)) + " bytes to " + bootinfo_file_name);
             fp.write(bootinfo)
             fp.close()
             fw_file_name = cfg.get(cfg_section, "img_file")
+            
+            try:
+                with open(fw_file_name, 'rb') as test_file:
+                    print("img_creat_process: target file does not exist yet");
+                    test_file.close()
+            except OSError as e:
+                print("img_creat_process: target file does exist already");
+            
+            print("img_creat_process: (fw_file_name) Going to append "+str(len(fw_data)) + " bytes to " + fw_file_name);
             fp = open(fw_file_name, 'wb+')
             fp.write(fw_data)
             fp.close()
@@ -837,6 +848,7 @@ class bl_img_create_do(bl_utils):
             whole_img_file_name = cfg.get(cfg_section, "whole_img_file")
             fp = open(whole_img_file_name, 'wb+')
             img_data = bootheader_data + pk_data + signature + aesiv_data + fw_data
+            print("img_creat_process: (whole_img_file) Going to append "+str(len(img_data)) + " bytes to " + whole_img_file_name);
             fp.write(img_data)
             fp.close()
             # update efuse
@@ -981,6 +993,7 @@ class bl_whole_img_generate():
         fp.close()
 
     def bl_image_gen_cfg(self, raw_bin_name, bintype, key=None, iv=None, cfg_ini=None, cpu_type=None):
+        print("Entering bl_image_gen_cfg....");
         cfg = BFConfigParser()
         if cfg_ini in [None, '']:
             f_org = bl_find_file("img_create_cfg", ".conf")
@@ -1015,14 +1028,18 @@ class bl_whole_img_generate():
         cfg.set(img_section_name, 'boot_header_file', bh_file)
         cfg.set(img_section_name, 'efuse_file', efuse_file)
         cfg.set(img_section_name, 'efuse_mask_file', efuse_mask_file)
+        print("[bl_image_gen_cfg] raw_bin_name is "+raw_bin_name);
         cfg.set(img_section_name, 'segdata_file', raw_bin_name)
+        print("[bl_image_gen_cfg] bootinfo_file is "+bootinfo_file);
         cfg.set(img_section_name, 'bootinfo_file', bootinfo_file)
+        print("[bl_image_gen_cfg] img_file is "+img_file);
         cfg.set(img_section_name, 'img_file', img_file)
         if key:
             cfg.set(img_section_name, 'aes_key_org', key)
         if iv:
             cfg.set(img_section_name, 'aes_iv', iv)
         cfg.write(f, 'w')
+        print("Exiting bl_image_gen_cfg....");
         return f
 
     def bl_image_gen(self, bintype, raw_bin_name, key=None, iv=None, cfg_ini=None):
