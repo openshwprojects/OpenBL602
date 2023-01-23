@@ -9,6 +9,7 @@ PROJECT_BOARD := evb
 export PROJECT_PATH PROJECT_BOARD
 #CONFIG_TOOLPREFIX :=
 
+CFLAGS += -DUSER_SW_VER=\"$(USER_SW_VER)\"
 
 -include ./proj_config.mk
 
