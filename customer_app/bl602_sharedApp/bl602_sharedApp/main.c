@@ -497,68 +497,6 @@ static void event_cb_wifi_event(input_event_t *event, void *private_data)
     }
 }
 
-static void __attribute__((unused)) cmd_aws(char *buf, int len, int argc, char **argv)
-{
-void aws_main_entry(void *arg);
-    xTaskCreate(aws_main_entry, (char*)"aws_iot", 4096, NULL, 10, NULL);
-}
-
-static void cmd_pka(char *buf, int len, int argc, char **argv)
-{
-    bl_pka_test();
-}
-
-static void cmd_wifi(char *buf, int len, int argc, char **argv)
-{
-void mm_sec_keydump(void);
-    mm_sec_keydump();
-}
-
-static void cmd_sha(char *buf, int len, int argc, char **argv)
-{
-    bl_sec_sha_test();
-}
-
-static void cmd_trng(char *buf, int len, int argc, char **argv)
-{
-    bl_sec_test();
-}
-
-static void cmd_aes(char *buf, int len, int argc, char **argv)
-{
-    bl_sec_aes_test();
-}
-
-static void cmd_cks(char *buf, int len, int argc, char **argv)
-{
-    bl_cks_test();
-}
-
-static void cmd_dma(char *buf, int len, int argc, char **argv)
-{
-    bl_dma_test();
-}
-
-static void cmd_exception_load(char *buf, int len, int argc, char **argv)
-{
-    bl_irq_exception_trigger(BL_IRQ_EXCEPTION_TYPE_LOAD_MISALIGN, (void*)0x22008001);
-}
-
-static void cmd_exception_l_illegal(char *buf, int len, int argc, char **argv)
-{
-    bl_irq_exception_trigger(BL_IRQ_EXCEPTION_TYPE_ACCESS_ILLEGAL, (void*)0x00200000);
-}
-
-static void cmd_exception_store(char *buf, int len, int argc, char **argv)
-{
-    bl_irq_exception_trigger(BL_IRQ_EXCEPTION_TYPE_STORE_MISALIGN, (void*)0x22008001);
-}
-
-static void cmd_exception_illegal_ins(char *buf, int len, int argc, char **argv)
-{
-    bl_irq_exception_trigger(BL_IRQ_EXCEPTION_TYPE_ILLEGAL_INSTRUCTION, (void*)0x22008001);
-}
-
 #define MAXBUF          128
 #define BUFFER_SIZE     (12*1024)
 
@@ -733,23 +671,7 @@ static void cmd_stack_wifi(char *buf, int len, int argc, char **argv)
 }
 
 const static struct cli_command cmds_userq[] STATIC_CLI_CMD_ATTRIBUTE = {
-        { "aws", "aws iot demo", cmd_aws},
-        { "pka", "pka iot demo", cmd_pka},
-        { "wifi", "wifi", cmd_wifi},
-        { "sha", "sha iot demo", cmd_sha},
-        { "trng", "trng test", cmd_trng},
-        { "aes", "trng test", cmd_aes},
-        { "cks", "cks test", cmd_cks},
-        { "dma", "dma test", cmd_dma},
-        { "exception_load", "exception load test", cmd_exception_load},
-        { "exception_l_illegal", "exception load test", cmd_exception_l_illegal},
-        { "exception_store", "exception store test", cmd_exception_store},
-        { "exception_inst_illegal", "exception illegal instruction", cmd_exception_illegal_ins},
-        /*Stack Command*/
-        { "stack_wifi", "Wi-Fi Stack", cmd_stack_wifi},
-        /*TCP/IP network test*/
-        {"http", "http client download test based on socket", http_test_cmd},
-        {"httpc", "http client download test based on RAW TCP", cmd_httpc_test},
+
 };
 
 static void _cli_init()
