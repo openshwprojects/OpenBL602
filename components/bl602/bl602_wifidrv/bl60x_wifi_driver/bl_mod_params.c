@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2020 Bouffalolab.
+ * Copyright (c) 2016-2022 Bouffalolab.
  *
  * This file is part of
  *     *** Bouffalolab Software Dev Kit ***
@@ -42,17 +42,17 @@ struct bl_mod_params bl_mod_params = {
     COMMON_PARAM(vht_on, false, false)
     COMMON_PARAM(mcs_map, IEEE80211_VHT_MCS_SUPPORT_0_7, IEEE80211_VHT_MCS_SUPPORT_0_7)
     COMMON_PARAM(phy_cfg, 2, 2)
-    COMMON_PARAM(uapsd_timeout, 300, 300)
+    COMMON_PARAM(uapsd_timeout, 3000, 3000)
     COMMON_PARAM(sgi, false, false)
     COMMON_PARAM(sgi80, false, false)
-    COMMON_PARAM(listen_itv, 10, 10)
+    COMMON_PARAM(listen_itv, 1, 1)
     COMMON_PARAM(listen_bcmc, true, true)
     COMMON_PARAM(lp_clk_ppm, 20, 20)
     COMMON_PARAM(ps_on, false, false)
     COMMON_PARAM(tx_lft, RWNX_TX_LIFETIME_MS, RWNX_TX_LIFETIME_MS)
     COMMON_PARAM(amsdu_maxnb, NX_TX_PAYLOAD_MAX, NX_TX_PAYLOAD_MAX)
     // By default, only enable UAPSD for Voice queue (see IEEE80211_DEFAULT_UAPSD_QUEUE comment)
-    COMMON_PARAM(uapsd_queues, IEEE80211_WMM_IE_STA_QOSINFO_AC_VO, IEEE80211_WMM_IE_STA_QOSINFO_AC_VO)
+    COMMON_PARAM(uapsd_queues, 0, 0)
 };
 
 int bl_handle_dynparams(struct bl_hw *bl_hw)

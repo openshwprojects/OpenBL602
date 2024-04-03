@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2016-2022 Bouffalolab.
  *
@@ -28,53 +27,48 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#pragma once
 
-
-#ifndef _LMAC_INT_H_
-#define _LMAC_INT_H_
-#include <stdint.h>
 #include <stdbool.h>
+
+typedef void *(*bl_pkt_eth_input_hook_cb_t)(bool is_sta, void *pkt, void *arg);
+
+extern bl_pkt_eth_input_hook_cb_t bl_wifi_pkt_eth_input_hook;
+extern void *bl_wifi_pkt_eth_input_hook_arg;
+
+/**
+ * @brief  Register a callback that is called before an eth packet is passed to TCP/IP stack.
+ *
+ * @param cb      Callback. cb may inspect, manipulate or even duplicate the packet.
+ *                The first argument passed to cb is a struct pbuf *, second being cb_arg.
+ *                cb should return NULL if cb drops the packet(cb might need to free it if so).
+ *                If non-NULL is returned by cb, the returned pbuf will be passed to TCP/IP stack.
+ * @param cb_arg  Callback argument.
+ */
+void bl_pkt_eth_input_hook_register(bl_pkt_eth_input_hook_cb_t cb, void *cb_arg);
+
+/**
+ * @brief  Unregister the callback previously registered.
+ */
+void bl_pkt_eth_input_hook_unregister(void);
+
+typedef void *(*bl_pkt_eth_output_hook_cb_t)(bool is_sta, void *pkt, void *arg);
+
+extern bl_pkt_eth_output_hook_cb_t bl_wifi_pkt_eth_output_hook;
+extern void *bl_wifi_pkt_eth_output_hook_arg;
 
 
 /**
- ****************************************************************************************
- * @addtogroup CO_INT
- * @ingroup COMMON
- * @brief Common integer standard types (removes use of stdint)
+ * @brief  Register a callback that is called before an eth packet from TCP/IP stack is sent by Wi-Fi.
  *
- * @{
- ****************************************************************************************
+ * @param cb      Callback. cb may inspect, manipulate or even duplicate the packet.
+ *                cb should return NULL if it drops the packet(cb should NOT free it if so).
+ *                If non-NULL is returned by cb, the returned pbuf will be sent by Wi-Fi.
+ * @param cb_arg  Callback argument.
  */
+void bl_pkt_eth_output_hook_register(bl_pkt_eth_output_hook_cb_t cb, void *cb_arg);
 
-
-/*
- * DEFINES
- ****************************************************************************************
+/**
+ * @brief  Unregister the callback previously registered.
  */
-
-
-typedef uint8_t u8_l;
-typedef int8_t s8_l;
-typedef bool bool_l;
-typedef uint16_t u16_l;
-typedef int16_t s16_l;
-typedef uint32_t u32_l;
-typedef int32_t s32_l;
-typedef uint64_t u64_l;
-
-typedef uint32_t u32;
-typedef uint16_t u16;
-typedef uint8_t u8;
-
-typedef int32_t s32;
-typedef int8_t s8;
-
-typedef uint64_t __le64;
-typedef uint32_t __le32;
-typedef uint16_t __le16;
-
-typedef uint32_t __be32;
-typedef uint16_t __be16;
-
-/// @} CO_INT
-#endif // _LMAC_INT_H_
+void bl_pkt_eth_output_hook_unregister(void);

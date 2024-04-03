@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2020 Bouffalolab.
+ * Copyright (c) 2016-2022 Bouffalolab.
  *
  * This file is part of
  *     *** Bouffalolab Software Dev Kit ***
@@ -39,72 +39,14 @@
  */
 // for MAC related elements (mac_addr, mac_ssid...)
 #include "lmac_types.h"
+#include <bl60x_fw_api.h>
+#include <wifi_mgmr_ext.h>
 #include "lmac_mac.h"
 #define MAX_PSK_PASS_PHRASE_LEN 64
 
 /*
  ****************************************************************************************
  */
-/////////////////////////////////////////////////////////////////////////////////
-// COMMUNICATION WITH LMAC LAYER
-/////////////////////////////////////////////////////////////////////////////////
-/* Task identifiers for communication between LMAC and DRIVER */
-enum
-{
-    TASK_NONE = (u8_l) -1,
-
-    // MAC Management task.
-    TASK_MM = 0,
-    // DEBUG task
-    TASK_DBG,
-    /// SCAN task
-    TASK_SCAN,
-    /// TDLS task
-    TASK_TDLS,
-    /// SCANU task
-    TASK_SCANU,
-    /// ME task
-    TASK_ME,
-    /// SM task
-    TASK_SM,
-    /// APM task
-    TASK_APM,
-    /// BAM task
-    TASK_BAM,
-    /// MESH task
-    TASK_MESH,
-    /// HOSTAPD task
-    TASK_HOSTAPD_U,
-    /// RXU task
-    TASK_RXU,
-    /// CFG task
-    TASK_CFG,
-#if 0
-    // This is used to define the last task that is running on the EMB processor
-    TASK_LAST_EMB = TASK_TDLS,
-#else
-    // This is used to define the last task that is running on the EMB processor
-    TASK_LAST_EMB = TASK_CFG,
-#endif
-
-    // nX API task
-    TASK_API,
-    TASK_MAX,
-};
-
-
-/// For MAC HW States copied from "hal_machw.h"
-enum
-{
-    /// MAC HW IDLE State.
-    HW_IDLE = 0,
-    /// MAC HW RESERVED State.
-    HW_RESERVED,
-    /// MAC HW DOZE State.
-    HW_DOZE,
-    /// MAC HW ACTIVE State.
-    HW_ACTIVE
-};
 
 /// Power Save mode setting
 enum mm_ps_mode_state
@@ -129,6 +71,24 @@ enum
     CO_OP_IN_PROGRESS,
 };
 
+/// WiFi Mode
+typedef enum {
+    /// 802.ll b
+    WIFI_MODE_802_11B       = 0x01,
+    /// 802.11 a
+    WIFI_MODE_802_11A       = 0x02,
+    /// 802.11 g
+    WIFI_MODE_802_11G       = 0x04,
+    /// 802.11n at 2.4GHz
+    WIFI_MODE_802_11N_2_4   = 0x08,
+    /// 802.11n at 5GHz
+    WIFI_MODE_802_11N_5     = 0x10,
+    /// 802.11ac at 5GHz
+    WIFI_MODE_802_11AC_5    = 0x20,
+    /// Reserved for future use
+    WIFI_MODE_RESERVED      = 0x40,
+} WiFi_Mode_t;
+
 /// Remain on channel operation codes
 enum mm_remain_on_channel_op
 {
@@ -138,256 +98,19 @@ enum mm_remain_on_channel_op
 
 #define DRV_TASK_ID 100
 
-/// Message Identifier. The number of messages is limited to 0xFFFF.
-/// The message ID is divided in two parts:
-/// - bits[15..10] : task index (no more than 64 tasks supported).
-/// - bits[9..0] : message index (no more that 1024 messages per task).
-typedef u16 lmac_msg_id_t;
-
-typedef u16 lmac_task_id_t;
-
-/// Build the first message ID of a task.
-#define LMAC_FIRST_MSG(task) ((lmac_msg_id_t)((task) << 10))
-
-#define MSG_T(msg) ((lmac_task_id_t)((msg) >> 10))
+#define MSG_T(msg) (((msg) >> 10))
 #define MSG_I(msg) ((msg) & ((1<<10)-1))
 
 /// The two following definitions are needed for message structure consistency
 /// Structure of a list element header
-struct co_list_hdr
-{
-    struct co_list_hdr *next;
-};
-
-/// Structure of a list
-struct co_list
-{
-    /// pointer to first element of the list
-    struct co_list_hdr *first;
-    /// pointer to the last element
-    struct co_list_hdr *last;
-    /// number of element in the list
-    u32_l cnt;
-
-//      #if NX_DEBUG
-//      /// max number of element in the list
-//      u32_l maxcnt;
-//      /// min number of element in the list
-//      u32_l mincnt;
-//      #endif // NX_DEBUG
-};
-
 /// Message structure.
 struct lmac_msg
 {
-    lmac_msg_id_t     id;         ///< Message id.
-    lmac_task_id_t    dest_id;    ///< Destination kernel identifier.
-    lmac_task_id_t    src_id;     ///< Source kernel identifier.
-    u16        param_len;  ///< Parameter embedded struct length.
+    ke_msg_id_t     id;         ///< Message id.
+    ke_task_id_t    dest_id;    ///< Destination kernel identifier.
+    ke_task_id_t    src_id;     ///< Source kernel identifier.
+    u32        param_len;  ///< Parameter embedded struct length.
     u32        param[];   ///< Parameter embedded struct. Must be word-aligned.
-};
-
-/// List of messages related to the task.
-enum mm_msg_tag
-{
-    /// RESET Request.
-    MM_RESET_REQ = LMAC_FIRST_MSG(TASK_MM),
-    /// RESET Confirmation.
-    MM_RESET_CFM,
-    /// START Request.
-    MM_START_REQ,
-    /// START Confirmation.
-    MM_START_CFM,
-    /// Read Version Request.
-    MM_VERSION_REQ,
-    /// Read Version Confirmation.
-    MM_VERSION_CFM,
-    /// ADD INTERFACE Request.
-    MM_ADD_IF_REQ,
-    /// ADD INTERFACE Confirmation.
-    MM_ADD_IF_CFM,
-    /// REMOVE INTERFACE Request.
-    MM_REMOVE_IF_REQ,
-    /// REMOVE INTERFACE Confirmation.
-    MM_REMOVE_IF_CFM,
-    /// STA ADD Request.
-    MM_STA_ADD_REQ,
-    /// STA ADD Confirm.
-    MM_STA_ADD_CFM,
-    /// STA DEL Request.
-    MM_STA_DEL_REQ,
-    /// STA DEL Confirm.
-    MM_STA_DEL_CFM,
-    /// RX FILTER CONFIGURATION Request.
-    MM_SET_FILTER_REQ,
-    /// RX FILTER CONFIGURATION Confirmation.
-    MM_SET_FILTER_CFM,
-    /// CHANNEL CONFIGURATION Request.
-    MM_SET_CHANNEL_REQ,
-    /// CHANNEL CONFIGURATION Confirmation.
-    MM_SET_CHANNEL_CFM,
-    /// DTIM PERIOD CONFIGURATION Request.
-    MM_SET_DTIM_REQ,
-    /// DTIM PERIOD CONFIGURATION Confirmation.
-    MM_SET_DTIM_CFM,
-    /// BEACON INTERVAL CONFIGURATION Request.
-    MM_SET_BEACON_INT_REQ,
-    /// BEACON INTERVAL CONFIGURATION Confirmation.
-    MM_SET_BEACON_INT_CFM,
-    /// BASIC RATES CONFIGURATION Request.
-    MM_SET_BASIC_RATES_REQ,
-    /// BASIC RATES CONFIGURATION Confirmation.
-    MM_SET_BASIC_RATES_CFM,
-    /// BSSID CONFIGURATION Request.
-    MM_SET_BSSID_REQ,
-    /// BSSID CONFIGURATION Confirmation.
-    MM_SET_BSSID_CFM,
-    /// EDCA PARAMETERS CONFIGURATION Request.
-    MM_SET_EDCA_REQ,
-    /// EDCA PARAMETERS CONFIGURATION Confirmation.
-    MM_SET_EDCA_CFM,
-    /// ABGN MODE CONFIGURATION Request.
-    MM_SET_MODE_REQ,
-    /// ABGN MODE CONFIGURATION Confirmation.
-    MM_SET_MODE_CFM,
-    /// Request setting the VIF active state (i.e associated or AP started)
-    MM_SET_VIF_STATE_REQ,
-    /// Confirmation of the @ref MM_SET_VIF_STATE_REQ message.
-    MM_SET_VIF_STATE_CFM,
-    /// SLOT TIME PARAMETERS CONFIGURATION Request.
-    MM_SET_SLOTTIME_REQ,
-    /// SLOT TIME PARAMETERS CONFIGURATION Confirmation.
-    MM_SET_SLOTTIME_CFM,
-    /// Power Mode Change Request.
-    MM_SET_IDLE_REQ,
-    /// Power Mode Change Confirm.
-    MM_SET_IDLE_CFM,
-    /// KEY ADD Request.
-    MM_KEY_ADD_REQ,
-    /// KEY ADD Confirm.
-    MM_KEY_ADD_CFM,
-    /// KEY DEL Request.
-    MM_KEY_DEL_REQ,
-    /// KEY DEL Confirm.
-    MM_KEY_DEL_CFM,
-    /// Block Ack agreement info addition
-    MM_BA_ADD_REQ,
-    /// Block Ack agreement info addition confirmation
-    MM_BA_ADD_CFM,
-    /// Block Ack agreement info deletion
-    MM_BA_DEL_REQ,
-    /// Block Ack agreement info deletion confirmation
-    MM_BA_DEL_CFM,
-    /// Indication of the primary TBTT to the upper MAC. Upon the reception of this
-    // message the upper MAC has to push the beacon(s) to the beacon transmission queue.
-    MM_PRIMARY_TBTT_IND,
-    /// Indication of the secondary TBTT to the upper MAC. Upon the reception of this
-    // message the upper MAC has to push the beacon(s) to the beacon transmission queue.
-    MM_SECONDARY_TBTT_IND,
-    /// Request for changing the TX power
-    MM_SET_POWER_REQ,
-    /// Confirmation of the TX power change
-    MM_SET_POWER_CFM,
-    /// Request to the LMAC to trigger the embedded logic analyzer and forward the debug
-    /// dump.
-    MM_DENOISE_REQ,
-    /// Set Power Save mode
-    MM_SET_PS_MODE_REQ,
-    /// Set Power Save mode confirmation
-    MM_SET_PS_MODE_CFM,
-    /// Request to add a channel context
-    MM_CHAN_CTXT_ADD_REQ,
-    /// Confirmation of the channel context addition
-    MM_CHAN_CTXT_ADD_CFM,
-    /// Request to delete a channel context
-    MM_CHAN_CTXT_DEL_REQ,
-    /// Confirmation of the channel context deletion
-    MM_CHAN_CTXT_DEL_CFM,
-    /// Request to link a channel context to a VIF
-    MM_CHAN_CTXT_LINK_REQ,
-    /// Confirmation of the channel context link
-    MM_CHAN_CTXT_LINK_CFM,
-    /// Request to unlink a channel context from a VIF
-    MM_CHAN_CTXT_UNLINK_REQ,
-    /// Confirmation of the channel context unlink
-    MM_CHAN_CTXT_UNLINK_CFM,
-    /// Request to update a channel context
-    MM_CHAN_CTXT_UPDATE_REQ,
-    /// Confirmation of the channel context update
-    MM_CHAN_CTXT_UPDATE_CFM,
-    /// Request to schedule a channel context
-    MM_CHAN_CTXT_SCHED_REQ,
-    /// Confirmation of the channel context scheduling
-    MM_CHAN_CTXT_SCHED_CFM,
-    /// Request to change the beacon template in LMAC
-    MM_BCN_CHANGE_REQ,
-    /// Confirmation of the beacon change
-    MM_BCN_CHANGE_CFM,
-    /// Request to update the TIM in the beacon (i.e to indicate traffic bufferized at AP)
-    MM_TIM_UPDATE_REQ,
-    /// Confirmation of the TIM update
-    MM_TIM_UPDATE_CFM,
-    /// Connection loss indication
-    MM_CONNECTION_LOSS_IND,
-    /// Channel context switch indication to the upper layers
-    MM_CHANNEL_SWITCH_IND,
-    /// Channel context pre-switch indication to the upper layers
-    MM_CHANNEL_PRE_SWITCH_IND,
-    /// Request to remain on channel or cancel remain on channel
-    MM_REMAIN_ON_CHANNEL_REQ,
-    /// Confirmation of the (cancel) remain on channel request
-    MM_REMAIN_ON_CHANNEL_CFM,
-    /// Remain on channel expired indication
-    MM_REMAIN_ON_CHANNEL_EXP_IND,
-    /// Indication of a PS state change of a peer device
-    MM_PS_CHANGE_IND,
-    /// Indication that some buffered traffic should be sent to the peer device
-    MM_TRAFFIC_REQ_IND,
-    /// Request to modify the STA Power-save mode options
-    MM_SET_PS_OPTIONS_REQ,
-    /// Confirmation of the PS options setting
-    MM_SET_PS_OPTIONS_CFM,
-    /// Indication of PS state change for a P2P VIF
-    MM_P2P_VIF_PS_CHANGE_IND,
-    /// Indication that CSA counter has been updated
-    MM_CSA_COUNTER_IND,
-    /// Channel occupation report indication
-    MM_CHANNEL_SURVEY_IND,
-    /// Message containing Beamformer Information
-    MM_BFMER_ENABLE_REQ,
-    /// Request to Start/Stop/Update NOA - GO Only
-    MM_SET_P2P_NOA_REQ,
-    /// Request to Start/Stop/Update Opportunistic PS - GO Only
-    MM_SET_P2P_OPPPS_REQ,
-    /// Start/Stop/Update NOA Confirmation
-    MM_SET_P2P_NOA_CFM,
-    /// Start/Stop/Update Opportunistic PS Confirmation
-    MM_SET_P2P_OPPPS_CFM,
-    /// P2P NoA Update Indication - GO Only
-    MM_P2P_NOA_UPD_IND,
-    /// Request to set RSSI threshold and RSSI hysteresis
-    MM_CFG_RSSI_REQ,
-    /// Indication that RSSI level is below or above the threshold
-    MM_RSSI_STATUS_IND,
-    /// Indication that CSA is done
-    MM_CSA_FINISH_IND,
-    /// Indication that CSA is in prorgess (resp. done) and traffic must be stopped (resp. restarted)
-    MM_CSA_TRAFFIC_IND,
-    /// Request to update the group information of a station
-    MM_MU_GROUP_UPDATE_REQ,
-    /// Confirmation of the @ref MM_MU_GROUP_UPDATE_REQ message
-    MM_MU_GROUP_UPDATE_CFM,
-
-    //Enable monitor mode
-    MM_MONITOR_REQ,
-    MM_MONITOR_CFM,
-
-    //Channel set under monitor mode
-    MM_MONITOR_CHANNEL_REQ,
-    MM_MONITOR_CHANNEL_CFM,
-
-    /// MAX number of messages
-    MM_MAX,
 };
 
 /// Interface types
@@ -401,83 +124,6 @@ enum
     MM_AP,
     // Mesh Point interface
     MM_MESH_POINT,
-};
-
-///BA agreement types
-enum
-{
-    ///BlockAck agreement for TX
-    BA_AGMT_TX,
-    ///BlockAck agreement for RX
-    BA_AGMT_RX,
-};
-
-///BA agreement related status
-enum
-{
-    ///Correct BA agreement establishment
-    BA_AGMT_ESTABLISHED,
-    ///BA agreement already exists for STA+TID requested, cannot override it (should have been deleted first)
-    BA_AGMT_ALREADY_EXISTS,
-    ///Correct BA agreement deletion
-    BA_AGMT_DELETED,
-    ///BA agreement for the (STA, TID) doesn't exist so nothing to delete
-    BA_AGMT_DOESNT_EXIST,
-};
-
-/// Features supported by LMAC - Positions
-enum mm_features
-{
-    /// Beaconing
-    MM_FEAT_BCN_BIT         = 0,
-    /// Autonomous Beacon Transmission
-    MM_FEAT_AUTOBCN_BIT,
-    /// Scan in LMAC
-    MM_FEAT_HWSCAN_BIT,
-    /// Connection Monitoring
-    MM_FEAT_CMON_BIT,
-    /// Multi Role
-    MM_FEAT_MROLE_BIT,
-    /// Radar Detection
-    MM_FEAT_RADAR_BIT,
-    /// Power Save
-    MM_FEAT_PS_BIT,
-    /// UAPSD
-    MM_FEAT_UAPSD_BIT,
-    /// DPSM
-    MM_FEAT_DPSM_BIT,
-    /// A-MPDU
-    MM_FEAT_AMPDU_BIT,
-    /// A-MSDU
-    MM_FEAT_AMSDU_BIT,
-    /// Channel Context
-    MM_FEAT_CHNL_CTXT_BIT,
-    /// Packet reordering
-    MM_FEAT_REORD_BIT,
-    /// P2P
-    MM_FEAT_P2P_BIT,
-    /// P2P Go
-    MM_FEAT_P2P_GO_BIT,
-    /// UMAC Present
-    MM_FEAT_UMAC_BIT,
-    /// VHT support
-    MM_FEAT_VHT_BIT,
-    /// Beamformee
-    MM_FEAT_BFMEE_BIT,
-    /// Beamformer
-    MM_FEAT_BFMER_BIT,
-    /// WAPI
-    MM_FEAT_WAPI_BIT,
-    /// MFP
-    MM_FEAT_MFP_BIT,
-    /// Mu-MIMO RX support
-    MM_FEAT_MU_MIMO_RX_BIT,
-    /// Mu-MIMO TX support
-    MM_FEAT_MU_MIMO_TX_BIT,
-    /// Wireless Mesh Networking
-    MM_FEAT_MESH_BIT,
-    /// TDLS support
-    MM_FEAT_TDLS_BIT,
 };
 
 /// Maximum number of words in the configuration buffer
@@ -623,13 +269,6 @@ struct mm_set_bssid_req
     u8_l inst_nbr;
 };
 
-/// Structure containing the parameters of the @ref MM_SET_FILTER_REQ message
-struct mm_set_filter_req
-{
-    /// RX filter to be put into rxCntrlReg HW register
-    u32_l filter;
-};
-
 /// Structure containing the parameters of the @ref MM_ADD_IF_REQ message.
 struct mm_add_if_req
 {
@@ -657,13 +296,6 @@ struct mm_set_edca_req
 struct mm_set_idle_req
 {
     u8_l hw_idle;
-};
-
-/// Structure containing the parameters of the @ref MM_SET_SLOTTIME_REQ message
-struct mm_set_slottime_req
-{
-    /// Slot time expressed in us
-    u8_l slottime;
 };
 
 /// Structure containing the parameters of the @ref MM_SET_MODE_REQ message
@@ -720,8 +352,6 @@ struct mm_version_cfm
 /// Structure containing the parameters of the @ref MM_STA_ADD_REQ message.
 struct mm_sta_add_req
 {
-    /// Maximum A-MPDU size, in bytes, for VHT frames
-    u32_l ampdu_size_max_vht;
     /// PAID/GID
     u32_l paid_gid;
     /// Maximum A-MPDU size, in bytes, for HT frames
@@ -732,8 +362,6 @@ struct mm_sta_add_req
     u8_l ampdu_spacing_min;
     /// Interface index
     u8_l inst_nbr;
-    /// TDLS station
-    bool_l tdls_sta;
 };
 
 /// Structure containing the parameters of the @ref MM_STA_ADD_CFM message.
@@ -774,41 +402,6 @@ struct mm_setpowermode_cfm
     u8_l     status;
 };
 
-/// Structure containing the parameters of the @ref MM_KEY_ADD REQ message.
-struct mm_key_add_req
-{
-    /// Key index (valid only for default keys)
-    u8_l key_idx;
-    /// STA index (valid only for pairwise or mesh group keys)
-    u8_l sta_idx;
-    /// Key material
-    struct mac_sec_key key;
-    /// Cipher suite (WEP64, WEP128, TKIP, CCMP)
-    u8_l cipher_suite;
-    /// Index of the interface for which the key is set (valid only for default keys or mesh group keys)
-    u8_l inst_nbr;
-    /// A-MSDU SPP parameter
-    u8_l spp;
-    /// Indicate if provided key is a pairwise key or not
-    bool_l pairwise;
-};
-
-/// Structure containing the parameters of the @ref MM_KEY_ADD_CFM message.
-struct mm_key_add_cfm
-{
-    /// Status of the operation (different from 0 if unsuccessful)
-    u8_l status;
-    /// HW index of the key just added
-    u8_l hw_key_idx;
-};
-
-/// Structure containing the parameters of the @ref MM_KEY_DEL_REQ message.
-struct mm_key_del_req
-{
-    /// HW index of the key to be deleted
-    u8_l hw_key_idx;
-};
-
 /// Structure containing the parameters of the @ref MM_MONITOR_REQ message.
 struct mm_monitor_req
 {
@@ -819,8 +412,6 @@ struct mm_monitor_req
 struct mm_monitor_channel_req
 {
     uint32_t freq;
-    uint32_t use_40Mhz;
-    uint32_t higher_band;
 };
 
 /// Structure containing the parameters of the @ref MM_MONITOR_CHANNEL_CFM message.
@@ -829,54 +420,6 @@ struct mm_monitor_channel_cfm
     uint32_t status;
     uint32_t freq;
     uint32_t data[8];
-};
-
-/// Structure containing the parameters of the @ref MM_BA_ADD_REQ message.
-struct mm_ba_add_req
-{
-    ///Type of agreement (0: TX, 1: RX)
-    u8_l  type;
-    ///Index of peer station with which the agreement is made
-    u8_l  sta_idx;
-    ///TID for which the agreement is made with peer station
-    u8_l  tid;
-    ///Buffer size - number of MPDUs that can be held in its buffer per TID
-    u8_l  bufsz;
-    /// Start sequence number negotiated during BA setup - the one in first aggregated MPDU counts more
-    u16_l ssn;
-};
-
-/// Structure containing the parameters of the @ref MM_BA_ADD_CFM message.
-struct mm_ba_add_cfm
-{
-    ///Index of peer station for which the agreement is being confirmed
-    u8_l sta_idx;
-    ///TID for which the agreement is being confirmed
-    u8_l tid;
-    /// Status of ba establishment
-    u8_l status;
-};
-
-/// Structure containing the parameters of the @ref MM_BA_DEL_REQ message.
-struct mm_ba_del_req
-{
-    ///Type of agreement (0: TX, 1: RX)
-    u8_l type;
-    ///Index of peer station for which the agreement is being deleted
-    u8_l sta_idx;
-    ///TID for which the agreement is being deleted
-    u8_l tid;
-};
-
-/// Structure containing the parameters of the @ref MM_BA_DEL_CFM message.
-struct mm_ba_del_cfm
-{
-    ///Index of peer station for which the agreement deletion is being confirmed
-    u8_l sta_idx;
-    ///TID for which the agreement deletion is being confirmed
-    u8_l tid;
-    /// Status of ba deletion
-    u8_l status;
 };
 
 /// Structure containing the parameters of the @ref MM_CHAN_CTXT_ADD_REQ message
@@ -986,14 +529,6 @@ struct mm_connection_loss_ind
 {
     /// VIF instance number
     u8_l inst_nbr;
-};
-
-
-/// Structure containing the parameters of the @ref MM_DBG_TRIGGER_REQ message.
-struct mm_dbg_trigger_req
-{
-    /// Error trace to be reported by the LMAC
-    char error[64];
 };
 
 /// Structure containing the parameters of the @ref MM_SET_PS_MODE_REQ message.
@@ -1107,15 +642,6 @@ struct mm_ps_change_ind
     u8_l ps_state;
 };
 
-/// Structure containing the parameters of the @ref MM_P2P_VIF_PS_CHANGE_IND message
-struct mm_p2p_vif_ps_change_ind
-{
-    /// Index of the P2P VIF that is switching its PS state
-    u8_l vif_index;
-    /// New PS state of the P2P VIF interface (0: active, 1: sleeping)
-    u8_l ps_state;
-};
-
 /// Structure containing the parameters of the @ref MM_TRAFFIC_REQ_IND message
 struct mm_traffic_req_ind
 {
@@ -1160,88 +686,6 @@ struct mm_channel_survey_ind
     u32_l chan_time_busy_ms;
 };
 
-/// Structure containing the parameters of the @ref MM_BFMER_ENABLE_REQ message.
-struct mm_bfmer_enable_req
-{
-    /**
-     * Address of Beamforming Report in host memory
-     * (Valid only if vht_su_bfmee is true)
-     */
-    u32_l host_bfr_addr;
-    /// AID
-    u16_l aid;
-    /// Station Index
-    u8_l sta_idx;
-    /// Maximum number of spatial streams the station can receive
-    u8_l rx_nss;
-    /**
-     * Indicate if peer STA is MU Beamformee (VHT) capable
-     * (Valid only if vht_su_bfmee is true)
-     */
-    bool_l vht_mu_bfmee;
-};
-
-/// Structure containing the parameters of the @ref MM_SET_P2P_NOA_REQ message.
-struct mm_set_p2p_noa_req
-{
-    /// VIF Index
-    u8_l vif_index;
-    /// Allocated NOA Instance Number - Valid only if count = 0
-    u8_l noa_inst_nb;
-    /// Count
-    u8_l count;
-    /// Indicate if NoA can be paused for traffic reason
-    bool_l dyn_noa;
-    /// Duration (in us)
-    u32_l duration_us;
-    /// Interval (in us)
-    u32_l interval_us;
-    /// Start Time offset from next TBTT (in us)
-    u32_l start_offset;
-};
-
-/// Structure containing the parameters of the @ref MM_SET_P2P_OPPPS_REQ message.
-struct mm_set_p2p_oppps_req
-{
-    /// VIF Index
-    u8_l vif_index;
-    /// CTWindow
-    u8_l ctwindow;
-};
-
-/// Structure containing the parameters of the @ref MM_SET_P2P_NOA_CFM message.
-struct mm_set_p2p_noa_cfm
-{
-    /// Request status
-    u8_l status;
-};
-
-/// Structure containing the parameters of the @ref MM_SET_P2P_OPPPS_CFM message.
-struct mm_set_p2p_oppps_cfm
-{
-    /// Request status
-    u8_l status;
-};
-
-/// Structure containing the parameters of the @ref MM_P2P_NOA_UPD_IND message.
-struct mm_p2p_noa_upd_ind
-{
-    /// VIF Index
-    u8_l vif_index;
-    /// NOA Instance Number
-    u8_l noa_inst_nb;
-    /// NoA Type
-    u8_l noa_type;
-    /// Count
-    u8_l count;
-    /// Duration (in us)
-    u32_l duration_us;
-    /// Interval (in us)
-    u32_l interval_us;
-    /// Start Time
-    u32_l start_time;
-};
-
 /// Structure containing the parameters of the @ref MM_CFG_RSSI_REQ message
 struct mm_cfg_rssi_req
 {
@@ -1264,64 +708,6 @@ struct mm_rssi_status_ind
     s8_l rssi;
 };
 
-/// Structure containing the parameters of the @ref MM_CSA_FINISH_IND message
-struct mm_csa_finish_ind
-{
-    /// Index of the VIF
-    u8_l vif_index;
-    /// Status of the operation
-    u8_l status;
-    /// New channel ctx index
-    u8_l chan_idx;
-};
-
-/// Structure containing the parameters of the @ref MM_CSA_TRAFFIC_IND message
-struct mm_csa_traffic_ind
-{
-    /// Index of the VIF
-    u8_l vif_index;
-    /// Is tx traffic enable or disable
-    bool_l enable;
-};
-
-/// Structure containing the parameters of the @ref MM_MU_GROUP_UPDATE_REQ message.
-/// Size allocated for the structure depends of the number of group
-struct mm_mu_group_update_req
-{
-    /// Station index
-    u8_l sta_idx;
-    /// Number of groups the STA belongs to
-    u8_l group_cnt;
-    /// Group information
-    struct
-    {
-        /// Group Id
-        u8_l group_id;
-        /// User position
-        u8_l user_pos;
-    } groups[];
-};
-
-///////////////////////////////////////////////////////////////////////////////
-/////////// For Scan messages
-///////////////////////////////////////////////////////////////////////////////
-enum scan_msg_tag
-{
-    /// Scanning start Request.
-    SCAN_START_REQ = LMAC_FIRST_MSG(TASK_SCAN),
-    /// Scanning start Confirmation.
-    SCAN_START_CFM,
-    /// End of scanning indication.
-    SCAN_DONE_IND,
-    /// Cancel scan request
-    SCAN_CANCEL_REQ,
-    /// Cancel scan confirmation
-    SCAN_CANCEL_CFM,
-
-    /// MAX number of messages
-    SCAN_MAX,
-};
-
 /// Maximum number of SSIDs in a scan request
 #define SCAN_SSID_MAX  1
 
@@ -1337,9 +723,6 @@ enum scan_msg_tag
 /// Flag bits
 #define SCAN_PASSIVE_BIT BIT(0)
 #define SCAN_DISABLED_BIT BIT(1)
-
-/// Maximum number of PHY bands supported
-#define SCAN_BAND_MAX 2
 
 /// Definition of a channel to be scanned
 struct scan_chan_tag
@@ -1363,6 +746,8 @@ struct scan_start_req
     struct mac_ssid ssid[SCAN_SSID_MAX];
     /// BSSID to be scanned
     struct mac_addr bssid;
+    /// MAC address used to send probe request
+    struct mac_addr mac;
     /// Pointer (in host memory) to the additional IEs that need to be added to the ProbeReq
     /// (following the SSID element)
     u32_l add_ies;
@@ -1385,45 +770,6 @@ struct scan_start_cfm
     u8_l status;
 };
 
-#if 0
-/// Structure containing the parameters of the @ref SCAN_CANCEL_REQ message
-struct scan_cancel_req
-{
-};
-#endif
-
-/// Structure containing the parameters of the @ref SCAN_START_CFM message
-struct scan_cancel_cfm
-{
-    /// Status of the request
-    u8_l status;
-};
-
-///////////////////////////////////////////////////////////////////////////////
-/////////// For Scanu messages
-///////////////////////////////////////////////////////////////////////////////
-/// Messages that are logically related to the task.
-enum
-{
-    /// Scan request from host.
-    SCANU_START_REQ = LMAC_FIRST_MSG(TASK_SCANU),
-    /// Scanning start Confirmation.
-    SCANU_START_CFM,
-    /// Join request
-    SCANU_JOIN_REQ,
-    /// Join confirmation.
-    SCANU_JOIN_CFM,
-    /// Scan result indication.
-    SCANU_RESULT_IND,
-    /// Scan RAW Data Send from host
-    SCANU_RAW_SEND_REQ,
-    /// Scan result indication.
-    SCANU_RAW_SEND_CFM,
-
-    /// MAX number of messages
-    SCANU_MAX,
-};
-
 /// Structure containing the parameters of the @ref SCANU_START_REQ message
 struct scanu_start_req
 {
@@ -1433,6 +779,8 @@ struct scanu_start_req
     struct mac_ssid ssid[SCAN_SSID_MAX];
     /// BSSID to be scanned (or WILDCARD BSSID if no BSSID is searched in particular)
     struct mac_addr bssid;
+    /// MAC address used to send probe request
+    struct mac_addr mac;
     /// Address (in host memory) of the additional IEs that need to be added to the ProbeReq
     /// (following the SSID element)
     u32_l add_ies;
@@ -1446,6 +794,10 @@ struct scanu_start_req
     u8_l ssid_cnt;
     /// no CCK - For P2P frames not being sent at CCK rate in 2GHz band.
     bool no_cck;
+    /// MISC flags
+    uint32_t flags;
+    /// channel scan time
+    uint32_t duration_scan;
 };
 
 struct scanu_raw_send_req
@@ -1465,22 +817,6 @@ struct scanu_start_cfm
     /// Status of the request
     u8_l status;
 };
-
-typedef struct
-{
-    uint8_t  wep;
-    uint8_t  wpa;
-    uint8_t  wpa2;
-} Security_mode_t;
-
-typedef struct
-{
-    uint8_t   wep40      : 1;
-    uint8_t   wep104     : 1;
-    uint8_t   tkip       : 1;
-    uint8_t   ccmp       : 1;
-    uint8_t   rsvd       : 4;
-} Cipher_t;
 
 /// Parameters of the @SCANU_RESULT_IND message
 struct scanu_result_ind
@@ -1508,6 +844,8 @@ struct scanu_result_ind
     int8_t ppm_abs;
     ///Rel. PPM of the received frame
     int8_t ppm_rel;
+    /// Flags
+    uint8_t flags;
     /// Date rate of the received frame.
     uint8_t data_rate;
     /// Frame payload.
@@ -1531,49 +869,6 @@ struct scanu_fast_req
     u16_l ch_nbr;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-/////////// For ME messages
-///////////////////////////////////////////////////////////////////////////////
-/// Messages that are logically related to the task.
-enum
-{
-    /// Configuration request from host.
-    ME_CONFIG_REQ = LMAC_FIRST_MSG(TASK_ME),
-    /// Configuration confirmation.
-    ME_CONFIG_CFM,
-    /// Configuration request from host.
-    ME_CHAN_CONFIG_REQ,
-    /// Configuration confirmation.
-    ME_CHAN_CONFIG_CFM,
-    /// Set control port state for a station.
-    ME_SET_CONTROL_PORT_REQ,
-    /// Control port setting confirmation.
-    ME_SET_CONTROL_PORT_CFM,
-    /// TKIP MIC failure indication.
-    ME_TKIP_MIC_FAILURE_IND,
-    /// Add a station to the FW (AP mode)
-    ME_STA_ADD_REQ,
-    /// Confirmation of the STA addition
-    ME_STA_ADD_CFM,
-    /// Delete a station from the FW (AP mode)
-    ME_STA_DEL_REQ,
-    /// Confirmation of the STA deletion
-    ME_STA_DEL_CFM,
-    /// Indication of a TX RA/TID queue credit update
-    ME_TX_CREDITS_UPDATE_IND,
-    /// Request indicating to the FW that there is traffic buffered on host
-    ME_TRAFFIC_IND_REQ,
-    /// Confirmation that the @ref ME_TRAFFIC_IND_REQ has been executed
-    ME_TRAFFIC_IND_CFM,
-    /// Request of RC statistics to a station
-    ME_RC_STATS_REQ,
-    /// RC statistics confirmation
-    ME_RC_STATS_CFM,
-    /// RC fixed rate request
-    ME_RC_SET_RATE_REQ,
-    /// MAX number of messages
-    ME_MAX,
-};
 
 /// Structure containing the parameters of the @ref ME_START_REQ message
 struct me_config_req
@@ -1649,8 +944,10 @@ struct me_sta_add_req
     u8_l opmode;
     /// Index of the VIF the station is attached to
     u8_l vif_idx;
+#if (TDLS_ENABLE)
     /// Whether the the station is TDLS station
     bool_l tdls_sta;
+#endif
     uint32_t tsflo;
     uint32_t tsfhi;
     int8_t rssi;
@@ -1673,8 +970,10 @@ struct me_sta_del_req
 {
     /// Index of the station to be deleted
     u8_l sta_idx;
+#if (TDLS_ENABLE)
     /// Whether the the station is TDLS station
     bool_l tdls_sta;
+#endif
 };
 
 /// Structure containing the parameters of the @ref ME_TX_CREDITS_UPDATE_IND message.
@@ -1697,13 +996,6 @@ struct me_traffic_ind_req
     u8_l tx_avail;
     /// Indicate if traffic is on uapsd-enabled queues
     bool_l uapsd;
-};
-
-/// Structure containing the parameters of the @ref ME_RC_STATS_REQ message.
-struct me_rc_stats_req
-{
-    /// Index of the station for which the RC statistics are requested
-	u8_l sta_idx;
 };
 
 /// Structure containing the structure of a retry chain step
@@ -1736,31 +1028,6 @@ struct rc_rate_stats
     bool_l rate_allowed;
 };
 
-/// Structure containing the parameters of the @ref ME_RC_STATS_CFM message.
-struct me_rc_stats_cfm
-{
-    /// Index of the station for which the RC statistics are provided
-    u8_l sta_idx;
-    /// Number of samples used in the RC algorithm
-    u16_l no_samples;
-    /// Number of MPDUs transmitted (per sampling interval)
-    u16_l ampdu_len;
-    /// Number of AMPDUs transmitted (per sampling interval)
-    u16_l ampdu_packets;
-    /// Average number of MPDUs in each AMPDU frame (EWMA)
-    u32_l avg_ampdu_len;
-    // Current step 0 of the retry chain
-    u8_l sw_retry_step;
-    /// Trial transmission period
-    u8_l sample_wait;
-    /// Retry chain steps
-    struct step retry[4];
-    /// RC statistics
-    struct rc_rate_stats rate_stats[10];
-    /// Throughput
-    u32_l tp[10];
-};
-
 /// Structure containing the parameters of the @ref ME_RC_SET_RATE_REQ message.
 struct me_rc_set_rate_req
 {
@@ -1768,32 +1035,10 @@ struct me_rc_set_rate_req
     u8_l sta_idx;
     /// Rate configuration to be set
     u16_l fixed_rate_cfg;
+    /// Force power table update
+    u16_l power_table_req;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-/////////// For SM messages
-///////////////////////////////////////////////////////////////////////////////
-/// Message API of the SM task
-enum sm_msg_tag
-{
-    /// Request to connect to an AP
-    SM_CONNECT_REQ = LMAC_FIRST_MSG(TASK_SM),
-    /// Confirmation of connection
-    SM_CONNECT_CFM,
-    /// Indicates that the SM associated to the AP
-    SM_CONNECT_IND,
-    /// Request to disconnect
-    SM_DISCONNECT_REQ,
-    /// Confirmation of disconnection
-    SM_DISCONNECT_CFM,
-    /// Indicates that the SM disassociated the AP
-    SM_DISCONNECT_IND,
-    /// Timeout message for procedures requiring a response from peer
-    SM_RSP_TIMEOUT_IND,
-
-    /// MAX number of messages
-    SM_MAX,
-};
 
 /// Structure containing the parameters of @ref SM_CONNECT_REQ message.
 struct sm_connect_req
@@ -1808,8 +1053,10 @@ struct sm_connect_req
     u32_l flags;
     /// Control port Ethertype
     u16_l ctrl_port_ethertype;
+#if 0
     /// Length of the association request IEs
     u16_l ie_len;
+#endif
     /// Listen interval to be used for this connection
     u16_l listen_interval;
     /// Flag indicating if the we have to wait for the BC/MC traffic after beacon or not
@@ -1822,9 +1069,11 @@ struct sm_connect_req
     u8_l vif_idx;
     /// retry counter for auth/aossoc
     u8_l counter_retry_auth_assoc;
+#if 0
     /// Buffer containing the additional information elements to be put in the
     /// association request
     u32_l ie_buf[64];
+#endif
     /// Enable embedded supplicant
     bool is_supplicant_enabled;
     //// Passphrase
@@ -1847,6 +1096,8 @@ struct sm_connect_ind
 {
     /// Status code of the connection procedure
     u16_l status_code;
+    /// Reason code by AP
+    u16_l reason_code;
     /// BSSID
     struct mac_addr bssid;
     /// Flag indicating if the indication refers to an internal roaming or from a host request
@@ -1877,13 +1128,13 @@ struct sm_connect_ind
 
     /// EDCA parameters
     u32_l ac_param[AC_MAX];
+    /// Pointer to the structure used for the diagnose module
+    struct sm_tlv_list connect_diagnose;
 };
 
 /// Structure containing the parameters of the @ref SM_DISCONNECT_REQ message.
 struct sm_disconnect_req
 {
-    /// Reason of the deauthentication.
-    u16_l reason_code;
     /// Index of the VIF.
     u8_l vif_idx;
 };
@@ -1899,64 +1150,33 @@ struct sm_association_ind
 /// Structure containing the parameters of the @ref SM_DISCONNECT_IND message.
 struct sm_disconnect_ind
 {
+    /// Status code of the disconnection procedure
+    u16_l status_code;
     /// Reason of the disconnection.
     u16_l reason_code;
     /// Index of the VIF.
     u8_l vif_idx;
     /// FT over DS is ongoing
     bool_l ft_over_ds;
+    /// Pointer to the structure used for the diagnose module
+    struct sm_tlv_list connect_diagnose;
 };
 
-
-///////////////////////////////////////////////////////////////////////////////
-/////////// For SM messages
-///////////////////////////////////////////////////////////////////////////////
-/// Message API of the APM task
-enum apm_msg_tag
+/// Structure containing the parameters of the @ref SM_CONNECT_ABORT_REQ message.
+struct sm_connect_abort_req
 {
-    /// Request to start the AP.
-    APM_START_REQ = LMAC_FIRST_MSG(TASK_APM),
-    /// Confirmation of the AP start.
-    APM_START_CFM,
-    /// Request to stop the AP.
-    APM_STOP_REQ,
-    /// Confirmation of the AP stop.
-    APM_STOP_CFM,
-    /// Request to start CAC
-    APM_START_CAC_REQ,
-    /// Confirmation of the CAC start
-    APM_START_CAC_CFM,
-    /// Request to stop CAC
-    APM_STOP_CAC_REQ,
-    /// Confirmation of the CAC stop
-    APM_STOP_CAC_CFM,
-    /// Nofity host that a station has joined the network
-    APM_STA_ADD_IND,
-    /// Nofity host that a station has left the network
-    APM_STA_DEL_IND,
-    /// Check sta connect timeout
-    APM_STA_CONNECT_TIMEOUT_IND,
-
-    /// Request to delete STA
-    APM_STA_DEL_REQ,
-    /// Confirmation of delete STA
-    APM_STA_DEL_CFM,
-
-    /// CONF MAX STA Request
-    APM_CONF_MAX_STA_REQ,
-    /// CONF MAX STA Confirm
-    APM_CONF_MAX_STA_CFM,
-
-    /// MAX number of messages
-    APM_MAX,
+    /// Index of the VIF.
+    uint8_t vif_idx;
 };
 
-enum cfg_msg_tag
+/// Structure containing the parameters of the @ref SM_CONNECT_ABORT_CFM message.
+struct sm_connect_abort_cfm
 {
-    /// Request to start the AP.
-    CFG_START_REQ = LMAC_FIRST_MSG(TASK_CFG),
-    CFG_START_CFM,
-    CFG_MAX,
+    /// Status. If 0, it means that the disconnection procedure will be aborted and that
+    /// a subsequent @ref SM_DISCONNECT_IND message will be forwarded once the procedure is
+    /// completed.
+    /// If 1, it means that the scan procdure will be aborted.
+    uint8_t status;
 };
 
 struct
@@ -2061,6 +1281,9 @@ struct apm_start_req
     /// AP Passphrase
     uint8_t phrase[MAX_PSK_PASS_PHRASE_LEN];
     uint8_t phrase_tail[1];
+    // Buf for storing IE
+    uint8_t bcn_buf_len;
+    uint8_t bcn_buf[64];
 };
 
 /// Structure containing the parameters of the @ref APM_START_CFM message.
@@ -2109,37 +1332,6 @@ struct apm_sta_del_cfm
     u8_l sta_idx;
 };
 
-/// Structure containing the parameters of the @ref APM_START_CAC_REQ message.
-struct apm_start_cac_req
-{
-    /// Control channel on which we have to start the CAC
-    struct scan_chan_tag chan;
-    /// Center frequency of the first segment
-    u32_l center_freq1;
-    /// Center frequency of the second segment (only in 80+80 configuration)
-    u32_l center_freq2;
-    /// Width of channel
-    u8_l ch_width;
-    /// Index of the VIF for which the CAC is started
-    u8_l vif_idx;
-};
-
-/// Structure containing the parameters of the @ref APM_START_CAC_CFM message.
-struct apm_start_cac_cfm
-{
-    /// Status of the CAC starting procedure
-    u8_l status;
-    /// Index of the channel context attached to the VIF for CAC
-    u8_l ch_idx;
-};
-
-/// Structure containing the parameters of the @ref APM_STOP_CAC_REQ message.
-struct apm_stop_cac_req
-{
-    /// Index of the VIF for which the CAC has to be stopped
-    u8_l vif_idx;
-};
-
 /// Structure containing the parameters of the @ref APM_STA_ADD_IND message.
 struct apm_sta_add_ind
 {
@@ -2160,530 +1352,14 @@ struct apm_sta_add_ind
 /// Structure containing the parameters of the @ref APM_STA_DEL_IND message.
 struct apm_sta_del_ind
 {
+    /// status of the apm_sta disconnection.
+    uint16_t status_code;
+    /// Reason of the apm_sta disconnection.
+    uint16_t reason_code;
     /// Station index
     uint8_t sta_idx;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-/////////// For MESH messages
-///////////////////////////////////////////////////////////////////////////////
-
 /// Maximum length of the Mesh ID
 #define MESH_MESHID_MAX_LEN     (32)
-
-/// Message API of the MESH task
-enum mesh_msg_tag
-{
-    /// Request to start the MP
-    MESH_START_REQ = LMAC_FIRST_MSG(TASK_MESH),
-    /// Confirmation of the MP start.
-    MESH_START_CFM,
-
-    /// Request to stop the MP.
-    MESH_STOP_REQ,
-    /// Confirmation of the MP stop.
-    MESH_STOP_CFM,
-
-    // Request to update the MP
-    MESH_UPDATE_REQ,
-    /// Confirmation of the MP update
-    MESH_UPDATE_CFM,
-
-    /// Request information about a given link
-    MESH_PEER_INFO_REQ,
-    /// Response to the MESH_PEER_INFO_REQ message
-    MESH_PEER_INFO_RSP,
-
-    /// Request automatic establishment of a path with a given mesh STA
-    MESH_PATH_CREATE_REQ,
-    /// Confirmation to the MESH_PATH_CREATE_REQ message
-    MESH_PATH_CREATE_CFM,
-
-    /// Request a path update (delete path, modify next hop mesh STA)
-    MESH_PATH_UPDATE_REQ,
-    /// Confirmation to the MESH_PATH_UPDATE_REQ message
-    MESH_PATH_UPDATE_CFM,
-
-    /// Indication from Host that the indicated Mesh Interface is a proxy for an external STA
-    MESH_PROXY_ADD_REQ,
-
-    /// Indicate that a connection has been established or lost
-    MESH_PEER_UPDATE_IND,
-    /// Notification that a connection has been established or lost (when MPM handled by userspace)
-    MESH_PEER_UPDATE_NTF = MESH_PEER_UPDATE_IND,
-
-    /// Indicate that a path is now active or inactive
-    MESH_PATH_UPDATE_IND,
-    /// Indicate that proxy information have been updated
-    MESH_PROXY_UPDATE_IND,
-
-    /// MAX number of messages
-    MESH_MAX,
-};
-
-/// Structure containing the parameters of the @ref MESH_START_REQ message.
-struct mesh_start_req
-{
-    /// Basic rate set
-    struct mac_rateset basic_rates;
-    /// Control channel on which we have to enable the AP
-    struct scan_chan_tag chan;
-    /// Center frequency of the first segment
-    u32_l center_freq1;
-    /// Center frequency of the second segment (only in 80+80 configuration)
-    u32_l center_freq2;
-    /// Width of channel
-    u8_l ch_width;
-    /// DTIM Period
-    u8_l dtim_period;
-    /// Beacon Interval
-    u16_l bcn_int;
-    /// Index of the VIF for which the MP is started
-    u8_l vif_index;
-    /// Length of the Mesh ID
-    u8_l mesh_id_len;
-    /// Mesh ID
-    u8_l mesh_id[MESH_MESHID_MAX_LEN];
-    /// Address of the IEs to download
-    u32_l ie_addr;
-    /// Length of the provided IEs
-    u8_l ie_len;
-    /// Indicate if Mesh Peering Management (MPM) protocol is handled in userspace
-    bool_l user_mpm;
-    /// Indicate if Mesh Point is using authentication
-    bool_l is_auth;
-    /// Indicate which authentication method is used
-    u8_l auth_id;
-};
-
-/// Structure containing the parameters of the @ref MESH_START_CFM message.
-struct mesh_start_cfm
-{
-    /// Status of the MP starting procedure
-    u8_l status;
-    /// Index of the VIF for which the MP is started
-    u8_l vif_idx;
-    /// Index of the channel context attached to the VIF
-    u8_l ch_idx;
-    /// Index of the STA used for BC/MC traffic
-    u8_l bcmc_idx;
-};
-
-/// Structure containing the parameters of the @ref MESH_STOP_REQ message.
-struct mesh_stop_req
-{
-    /// Index of the VIF for which the MP has to be stopped
-    u8_l vif_idx;
-};
-
-/// Structure containing the parameters of the @ref MESH_STOP_CFM message.
-struct mesh_stop_cfm
-{
-    /// Index of the VIF for which the MP has to be stopped
-    u8_l vif_idx;
-   /// Status
-    u8_l status;
-};
-
-/// Bit fields for mesh_update_req message's flags value
-enum mesh_update_flags_bit
-{
-    /// Root Mode
-    MESH_UPDATE_FLAGS_ROOT_MODE_BIT = 0,
-    /// Gate Mode
-    MESH_UPDATE_FLAGS_GATE_MODE_BIT,
-    /// Mesh Forwarding
-    MESH_UPDATE_FLAGS_MESH_FWD_BIT,
-    /// Local Power Save Mode
-    MESH_UPDATE_FLAGS_LOCAL_PSM_BIT,
-};
-
-/// Structure containing the parameters of the @ref MESH_UPDATE_REQ message.
-struct mesh_update_req
-{
-    /// Flags, indicate fields which have been updated
-    u8_l flags;
-    /// VIF Index
-    u8_l vif_idx;
-    /// Root Mode
-    u8_l root_mode;
-    /// Gate Announcement
-    bool_l gate_announ;
-    /// Mesh Forwarding
-    bool_l mesh_forward;
-    /// Local PS Mode
-    u8_l local_ps_mode;
-};
-
-/// Structure containing the parameters of the @ref MESH_UPDATE_CFM message.
-struct mesh_update_cfm
-{
-    /// Status
-    u8_l status;
-};
-
-/// Structure containing the parameters of the @ref MESH_PEER_INFO_REQ message.
-struct mesh_peer_info_req
-{
-    ///Index of the station allocated for the peer
-    u8_l sta_idx;
-};
-
-/// Structure containing the parameters of the @ref MESH_PEER_INFO_RSP message.
-struct mesh_peer_info_rsp
-{
-    /// Response status
-    u8_l status;
-    /// Index of the station allocated for the peer
-    u8_l sta_idx;
-    /// Local Link ID
-    u16_l local_link_id;
-    /// Peer Link ID
-    u16_l peer_link_id;
-    /// Local PS Mode
-    u8_l local_ps_mode;
-    /// Peer PS Mode
-    u8_l peer_ps_mode;
-    /// Non-peer PS Mode
-    u8_l non_peer_ps_mode;
-    /// Link State
-    u8_l link_state;
-};
-
-/// Structure containing the parameters of the @ref MESH_PATH_CREATE_REQ message.
-struct mesh_path_create_req
-{
-    /// Index of the interface on which path has to be created
-    u8_l vif_idx;
-    /// Indicate if originator MAC Address is provided
-    bool_l has_orig_addr;
-    /// Path Target MAC Address
-    struct mac_addr tgt_mac_addr;
-    /// Originator MAC Address
-    struct mac_addr orig_mac_addr;
-};
-
-/// Structure containing the parameters of the @ref MESH_PATH_CREATE_CFM message.
-struct mesh_path_create_cfm
-{
-    /// Confirmation status
-    u8_l status;
-    /// VIF Index
-    u8_l vif_idx;
-};
-
-/// Structure containing the parameters of the @ref MESH_PATH_UPDATE_REQ message.
-struct mesh_path_update_req
-{
-    /// Indicate if path must be deleted
-    bool_l delete;
-    /// Index of the interface on which path has to be created
-    u8_l vif_idx;
-    /// Path Target MAC Address
-    struct mac_addr tgt_mac_addr;
-    /// Next Hop MAC Address
-    struct mac_addr nhop_mac_addr;
-};
-
-/// Structure containing the parameters of the @ref MESH_PATH_UPDATE_CFM message.
-struct mesh_path_update_cfm
-{
-    /// Confirmation status
-    u8_l status;
-    /// VIF Index
-    u8_l vif_idx;
-};
-
-/// Structure containing the parameters of the @ref MESH_PROXY_ADD_REQ message.
-struct mesh_proxy_add_req
-{
-    /// VIF Index
-    u8_l vif_idx;
-    /// MAC Address of the External STA
-    struct mac_addr ext_sta_addr;
-};
-
-/// Structure containing the parameters of the @ref MESH_PROXY_UPDATE_IND
-struct mesh_proxy_update_ind
-{
-    /// Indicate if proxy information has been added or deleted
-    bool_l delete;
-    /// Indicate if we are a proxy for the external STA
-    bool_l local;
-    /// VIF Index
-    u8_l vif_idx;
-    /// MAC Address of the External STA
-    struct mac_addr ext_sta_addr;
-    /// MAC Address of the proxy (only valid if local is false)
-    struct mac_addr proxy_mac_addr;
-};
-
-/// Structure containing the parameters of the @ref MESH_PEER_UPDATE_IND message.
-struct mesh_peer_update_ind
-{
-    /// Indicate if connection has been established or lost
-    bool_l estab;
-    /// VIF Index
-    u8_l vif_idx;
-    /// STA Index
-    u8_l sta_idx;
-    /// Peer MAC Address
-    struct mac_addr peer_addr;
-};
-
-/// Structure containing the parameters of the @ref MESH_PEER_UPDATE_NTF message.
-struct mesh_peer_update_ntf
-{
-    /// VIF Index
-    u8_l vif_idx;
-    /// STA Index
-    u8_l sta_idx;
-    /// Mesh Link State
-    u8_l state;
-};
-
-/// Structure containing the parameters of the @ref MESH_PATH_UPDATE_IND message.
-struct mesh_path_update_ind
-{
-    /// Indicate if path is deleted or not
-    bool_l delete;
-    /// Indicate if path is towards an external STA (not part of MBSS)
-    bool_l ext_sta;
-    /// VIF Index
-    u8_l vif_idx;
-    /// Path Index
-    u8_l path_idx;
-    /// Target MAC Address
-    struct mac_addr tgt_mac_addr;
-    /// External STA MAC Address (only if ext_sta is true)
-    struct mac_addr ext_sta_mac_addr;
-    /// Next Hop STA Index
-    u8_l nhop_sta_idx;
-};
-
-///////////////////////////////////////////////////////////////////////////////
-/////////// For Debug messages
-///////////////////////////////////////////////////////////////////////////////
-
-/// Messages related to Debug Task
-enum dbg_msg_tag
-{
-    /// Memory read request
-    DBG_MEM_READ_REQ = LMAC_FIRST_MSG(TASK_DBG),
-    /// Memory read confirm
-    DBG_MEM_READ_CFM,
-    /// Memory write request
-    DBG_MEM_WRITE_REQ,
-    /// Memory write confirm
-    DBG_MEM_WRITE_CFM,
-    /// Module filter request
-    DBG_SET_MOD_FILTER_REQ,
-    /// Module filter confirm
-    DBG_SET_MOD_FILTER_CFM,
-    /// Severity filter request
-    DBG_SET_SEV_FILTER_REQ,
-    /// Severity filter confirm
-    DBG_SET_SEV_FILTER_CFM,
-    /// LMAC/MAC HW fatal error indication
-    DBG_ERROR_IND,
-    /// Request to get system statistics
-    DBG_GET_SYS_STAT_REQ,
-    /// COnfirmation of system statistics
-    DBG_GET_SYS_STAT_CFM,
-    /// Max number of Debug messages
-    DBG_MAX,
-};
-
-/// Structure containing the parameters of the @ref DBG_MEM_READ_REQ message.
-struct dbg_mem_read_req
-{
-    u32_l memaddr;
-};
-
-/// Structure containing the parameters of the @ref DBG_MEM_READ_CFM message.
-struct dbg_mem_read_cfm
-{
-    u32_l memaddr;
-    u32_l memdata;
-};
-
-/// Structure containing the parameters of the @ref DBG_MEM_WRITE_REQ message.
-struct dbg_mem_write_req
-{
-    u32_l memaddr;
-    u32_l memdata;
-};
-
-/// Structure containing the parameters of the @ref DBG_MEM_WRITE_CFM message.
-struct dbg_mem_write_cfm
-{
-    u32_l memaddr;
-    u32_l memdata;
-};
-
-/// Structure containing the parameters of the @ref DBG_SET_MOD_FILTER_REQ message.
-struct dbg_set_mod_filter_req
-{
-    /// Bit field indicating for each module if the traces are enabled or not
-    u32_l mod_filter;
-};
-
-/// Structure containing the parameters of the @ref DBG_SEV_MOD_FILTER_REQ message.
-struct dbg_set_sev_filter_req
-{
-    /// Bit field indicating the severity threshold for the traces
-    u32_l sev_filter;
-};
-
-/// Structure containing the parameters of the @ref DBG_GET_SYS_STAT_CFM message.
-struct dbg_get_sys_stat_cfm
-{
-    /// Time spent in CPU sleep since last reset of the system statistics
-    u32_l cpu_sleep_time;
-    /// Time spent in DOZE since last reset of the system statistics
-    u32_l doze_time;
-    /// Total time spent since last reset of the system statistics
-    u32_l stats_time;
-};
-
-///////////////////////////////////////////////////////////////////////////////
-/////////// For TDLS messages
-///////////////////////////////////////////////////////////////////////////////
-
-/// List of messages related to the task.
-enum tdls_msg_tag
-{
-    /// TDLS channel Switch Request.
-    TDLS_CHAN_SWITCH_REQ = LMAC_FIRST_MSG(TASK_TDLS),
-    /// TDLS channel switch confirmation.
-    TDLS_CHAN_SWITCH_CFM,
-    /// TDLS channel switch indication.
-    TDLS_CHAN_SWITCH_IND,
-    /// TDLS channel switch to base channel indication.
-    TDLS_CHAN_SWITCH_BASE_IND,
-    /// TDLS cancel channel switch request.
-    TDLS_CANCEL_CHAN_SWITCH_REQ,
-    /// TDLS cancel channel switch confirmation.
-    TDLS_CANCEL_CHAN_SWITCH_CFM,
-    /// TDLS peer power save indication.
-    TDLS_PEER_PS_IND,
-    /// TDLS peer traffic indication request.
-    TDLS_PEER_TRAFFIC_IND_REQ,
-    /// TDLS peer traffic indication confirmation.
-    TDLS_PEER_TRAFFIC_IND_CFM,
-    /// MAX number of messages
-    TDLS_MAX
-};
-
-/// Structure containing the parameters of the @ref TDLS_CHAN_SWITCH_REQ message
-struct tdls_chan_switch_req
-{
-    /// Index of the VIF
-    u8_l vif_index;
-    /// STA Index
-    u8_l sta_idx;
-    /// MAC address of the TDLS station
-    struct mac_addr peer_mac_addr;
-    bool_l initiator;
-    /// Band (2.4GHz or 5GHz)
-    u8_l band;
-    /// Channel type: 20,40,80,160 or 80+80 MHz
-    u8_l type;
-    /// Frequency for Primary 20MHz channel (in MHz)
-    u16_l prim20_freq;
-    /// Frequency for Center of the contiguous channel or center of Primary 80+80
-    u16_l center1_freq;
-    /// Frequency for Center of the non-contiguous secondary 80+80
-    u16_l center2_freq;
-    /// TX power (in dBm)
-    s8_l tx_power;
-    /// Operating class
-    u8_l op_class;
-};
-
-/// Structure containing the parameters of the @ref TDLS_CANCEL_CHAN_SWITCH_REQ message
-struct tdls_cancel_chan_switch_req
-{
-    /// Index of the VIF
-    u8_l vif_index;
-    /// STA Index
-    u8_l sta_idx;
-    /// MAC address of the TDLS station
-    struct mac_addr peer_mac_addr;
-};
-
-
-/// Structure containing the parameters of the @ref TDLS_CHAN_SWITCH_CFM message
-struct tdls_chan_switch_cfm
-{
-    /// Status of the operation
-    u8_l status;
-};
-
-/// Structure containing the parameters of the @ref TDLS_CANCEL_CHAN_SWITCH_CFM message
-struct tdls_cancel_chan_switch_cfm
-{
-    /// Status of the operation
-    u8_l status;
-};
-
-/// Structure containing the parameters of the @ref TDLS_CHAN_SWITCH_IND message
-struct tdls_chan_switch_ind
-{
-    /// VIF Index
-    u8_l vif_index;
-    /// Channel Context Index
-    u8_l chan_ctxt_index;
-    /// Status of the operation
-    u8_l status;
-};
-
-/// Structure containing the parameters of the @ref TDLS_CHAN_SWITCH_BASE_IND message
-struct tdls_chan_switch_base_ind
-{
-    /// VIF Index
-    u8_l vif_index;
-    /// Channel Context index
-    u8_l chan_ctxt_index;
-};
-
-/// Structure containing the parameters of the @ref TDLS_PEER_PS_IND message
-struct tdls_peer_ps_ind
-{
-    /// VIF Index
-    u8_l vif_index;
-    /// STA Index
-    u8_l sta_idx;
-    /// MAC ADDR of the TDLS STA
-    struct mac_addr peer_mac_addr;
-    /// Flag to indicate if the TDLS peer is going to sleep
-    bool ps_on;
-};
-
-/// Structure containing the parameters of the @ref TDLS_PEER_TRAFFIC_IND_REQ message
-struct tdls_peer_traffic_ind_req
-{
-    /// VIF Index
-    u8_l vif_index;
-    /// STA Index
-    u8_l sta_idx;
-    // MAC ADDR of the TDLS STA
-    struct mac_addr peer_mac_addr;
-    /// Dialog token
-    u8_l dialog_token;
-    /// TID of the latest MPDU transmitted over the TDLS direct link to the TDLS STA
-    u8_l last_tid;
-    /// Sequence number of the latest MPDU transmitted over the TDLS direct link
-    /// to the TDLS STA
-    u16_l last_sn;
-};
-
-/// Structure containing the parameters of the @ref TDLS_PEER_TRAFFIC_IND_CFM message
-struct tdls_peer_traffic_ind_cfm
-{
-    /// Status of the operation
-    u8_l status;
-};
-
-
 #endif // LMAC_MSG_H_

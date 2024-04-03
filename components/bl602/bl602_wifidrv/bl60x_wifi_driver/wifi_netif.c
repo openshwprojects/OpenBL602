@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Bouffalolab.
+ * Copyright (c) 2016-2022 Bouffalolab.
  *
  * This file is part of
  *     *** Bouffalolab Software Dev Kit ***
@@ -40,7 +40,7 @@ int wifi_netif_dhcp_start(struct netif *netif)
         netifapi_dhcp_start(netif);
         wifiMgmr.wlan_sta.dhcp_started = 1;
     } else {
-        os_printf(DEBUG_HEADER "Skip DHCPCing...\r\n");
+        bl_os_printf(DEBUG_HEADER "Skip DHCPCing...\r\n");
     }
     return 0;
 }

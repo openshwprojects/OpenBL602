@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Bouffalolab.
+ * Copyright (c) 2016-2022 Bouffalolab.
  *
  * This file is part of
  *     *** Bouffalolab Software Dev Kit ***
@@ -172,6 +172,7 @@ typedef SemaphoreHandle_t os_mutex_t;
 typedef StaticQueue_t os_messagequeue_t;
 #define os_mq_init(mq, name, buffer, msgsize, buffersize) (NULL != xQueueCreateStatic((buffersize) / (msgsize), msgsize, buffer, mq) ? 0 : 1)
 #define os_mq_send(mq, msg, len) (xQueueSend((QueueHandle_t)mq, msg, portMAX_DELAY) > 0 ? 0 : 1)
+#define os_mq_send_nowait(mq, msg, len) (xQueueSend((QueueHandle_t)mq, msg, 0) > 0 ? 0 : 1)
 #define os_mq_recv(mq, msg, len) (xQueueReceive((QueueHandle_t)mq, msg, portMAX_DELAY) > 0 ? 0 : 1)
 /*timer related*/
 typedef StaticTimer_t os_timer_t;

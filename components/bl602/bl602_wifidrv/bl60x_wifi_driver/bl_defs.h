@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Bouffalolab.
+ * Copyright (c) 2016-2022 Bouffalolab.
  *
  * This file is part of
  *     *** Bouffalolab Software Dev Kit ***
@@ -159,7 +159,7 @@ struct bl_patternbuf {
 };
 
 struct bl_dbginfo {
-    os_mutex_t mutex;
+    BL_Mutex_t mutex;
     struct dbg_debug_dump_tag *buf;
     u32 dma_addr;
     int bufsz;
