@@ -234,7 +234,7 @@ BL_CHIP_NAME := ${CONFIG_CHIP_NAME}
 # Set default LDFLAGS
 # -nostdlib
 # --specs=nosys.specs 
-EXTRA_LDFLAGS ?= -Wl,--cref -nostartfiles
+EXTRA_LDFLAGS ?= -Wl,--cref -nostartfiles -Wl,--gc-sections
 ifeq ($(CONFIG_ZIGBEE), 1)
 EXTRA_LDFLAGS += --specs=nosys.specs
 endif
@@ -275,6 +275,7 @@ endif
 EXTRA_CPPFLAGS ?=
 CPPFLAGS += -D BL_CHIP_NAME=\"$(BL_CHIP_NAME)\" -MMD -MP $(EXTRA_CPPFLAGS)
 CPPFLAGS += -DARCH_RISCV
+CPPFLAGS += -DNDEBUG
 
 # Warnings-related flags relevant both for C and C++
 COMMON_WARNING_FLAGS = -Wall -Werror=all \
@@ -300,15 +301,10 @@ endif
 COMMON_FLAGS = \
 	-ffunction-sections -fdata-sections \
 	-fstrict-volatile-bitfields \
-    -fshort-enums
-
-
-COMMON_FLAGS_M4_EXT := 	\
+    -fshort-enums \
+	-fomit-frame-pointer \
 	-ffreestanding \
 	-fno-strict-aliasing
-
-		
-COMMON_FLAGS += $(COMMON_FLAGS_M4_EXT)
 
 ifdef CONFIG_STACK_CHECK_NORM
 COMMON_FLAGS += -fstack-protector
