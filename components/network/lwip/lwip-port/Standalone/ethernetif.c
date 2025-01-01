@@ -79,8 +79,7 @@ static void low_level_init(struct netif *netif)
 
   /* device capabilities */
   /* don't set NETIF_FLAG_ETHARP if this device is not an ethernet one */
-	// 2023 - added  | NETIF_FLAG_IGMP; for multicast
-  netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_IGMP;
+  netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP;
 
   /* Initialize Tx Descriptors list: Chain Mode */
   ETH_DMATxDescChainInit(DMATxDscrTab, &Tx_Buff[0][0], ETH_TXBUFNB);

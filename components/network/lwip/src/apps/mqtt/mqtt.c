@@ -1153,7 +1153,7 @@ mqtt_publish(mqtt_client_t *client, const char *topic, const void *payload, u16_
   }
 
   mqtt_append_request(&client->pend_req_queue, r);
-  //mqtt_output_send(&client->output, client->conn);
+  mqtt_output_send(&client->output, client->conn);
   return ERR_OK;
 }
 
@@ -1221,7 +1221,7 @@ mqtt_sub_unsub(mqtt_client_t *client, const char *topic, u8_t qos, mqtt_request_
   }
 
   mqtt_append_request(&client->pend_req_queue, r);
-  //mqtt_output_send(&client->output, client->conn);
+  mqtt_output_send(&client->output, client->conn);
   return ERR_OK;
 }
 
@@ -1327,7 +1327,7 @@ mqtt_client_connect(mqtt_client_t *client, const ip_addr_t *ip_addr, u16_t port,
     LWIP_ERROR("mqtt_client_connect: remaining_length overflow", len <= 0xFFFF, return ERR_VAL);
     remaining_length = (u16_t)len;
   }
-  if (client_info->client_user != NULL && client_info->client_user[0] != NULL) {
+  if (client_info->client_user != NULL) {
     flags |= MQTT_CONNECT_FLAG_USERNAME;
     len = strlen(client_info->client_user);
     LWIP_ERROR("mqtt_client_connect: client_info->client_user length overflow", len <= 0xFFFF, return ERR_VAL);
@@ -1337,7 +1337,7 @@ mqtt_client_connect(mqtt_client_t *client, const ip_addr_t *ip_addr, u16_t port,
     LWIP_ERROR("mqtt_client_connect: remaining_length overflow", len <= 0xFFFF, return ERR_VAL);
     remaining_length = (u16_t)len;
   }
-  if (client_info->client_pass != NULL && client_info->client_pass[0] != NULL) {
+  if (client_info->client_pass != NULL) {
     flags |= MQTT_CONNECT_FLAG_PASSWORD;
     len = strlen(client_info->client_pass);
     LWIP_ERROR("mqtt_client_connect: client_info->client_pass length overflow", len <= 0xFFFF, return ERR_VAL);

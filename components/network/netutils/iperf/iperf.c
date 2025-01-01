@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Bouffalolab.
+ * Copyright (c) 2016-2022 Bouffalolab.
  *
  * This file is part of
  *     *** Bouffalolab Software Dev Kit ***
@@ -27,6 +27,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 /**
 * iperf-liked network performance tool
 *
@@ -47,18 +48,52 @@
 #include <netutils/netutils.h>
 #include <bl_timer.h>
 
+#include <utils_hexdump.h>
+#include <utils_tlv_bl.h>
+#include <utils_string.h>
+#include <utils_getopt.h>
+
+
 #define IPERF_PORT_LOCAL    5002
 #define IPERF_PORT          5001
+#if defined(CFG_CHIP_BL808)
+#define IPERF_BUFSZ         (16 * 1300)
+#elif defined(CFG_CHIP_BL606P)
+#define IPERF_BUFSZ         (16 * 1300)
+#else
 #define IPERF_BUFSZ         (4 * 1300)
+#endif
 #define IPERF_BUFSZ_UDP     (1 * 1300)
 #define DEBUG_HEADER        "[NET] [IPC] "
 #define DEFAULT_HOST_IP     "192.168.11.1"
+#define IPERF_IP_LOCAL      "0.0.0.0"
+
+volatile int exit_flag = 0;
 
 typedef struct UDP_datagram {
     uint32_t id;
     uint32_t tv_sec;
     uint32_t tv_usec;
 } UDP_datagram;
+
+typedef struct iperf_param {
+    int port;
+    char *host;
+}iperf_param_t;
+
+enum {
+    /// TCP mode
+    IPERF_TCP = 0,
+    /// UDP mode
+    IPERF_UDP
+};
+
+enum {
+    /// Client mode
+    IPERF_CLIENT = 0,
+    /// Server mode
+    IPERF_SERVER
+};
 
 /*
  * The server_hdr structure facilitates the server
@@ -98,23 +133,24 @@ static void iperf_client_tcp(void *arg)
     int sentlen;
     uint32_t tick0, tick1, tick2;
     struct sockaddr_in addr;
-    char *host = (char*) arg;
+    iperf_param_t *iperf_param = (iperf_param_t *)arg;
     uint64_t bytes_transfered = 0;
 
-    char speed[32] = { 0 };
+    char speed[64] = { 0 };
     float f_min = 8000.0, f_max = 0.0;
+
+    exit_flag = 0;
 
     send_buf = (uint8_t *) pvPortMalloc (IPERF_BUFSZ);
     if (!send_buf) {
-        vPortFree(arg);
-        return;
+        goto __exit;
     }
 
     for (i = 0; i < IPERF_BUFSZ; i ++) {
         send_buf[i] = i & 0xff;
     }
 
-    while (1) {
+    while (!exit_flag) {
         sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (sock < 0)
         {
@@ -124,8 +160,8 @@ static void iperf_client_tcp(void *arg)
         }
 
         addr.sin_family = PF_INET;
-        addr.sin_port = htons(IPERF_PORT);
-        addr.sin_addr.s_addr = inet_addr(host);
+        addr.sin_port = htons(iperf_param->port);
+        addr.sin_addr.s_addr = inet_addr(iperf_param->host);
 
         ret = connect(sock, (const struct sockaddr*)&addr, sizeof(addr));
         if (ret == -1)
@@ -153,7 +189,7 @@ static void iperf_client_tcp(void *arg)
 
         tick0 = xTaskGetTickCount();
         tick1 = tick0;
-        while(1) {
+        while(!exit_flag) {
             tick2 = xTaskGetTickCount();
             if (tick2 - tick1 >= 1000 * 5)
             {
@@ -196,26 +232,52 @@ static void iperf_client_tcp(void *arg)
         vTaskDelay(1000*2);
         printf("disconnected!\r\n");
     }
+
+__exit:
+    exit_flag = 0;
+    if (send_buf) vPortFree(send_buf);
+    if (iperf_param->host) vPortFree(iperf_param->host);
+    if (iperf_param) vPortFree(iperf_param);
     printf("iper stop\r\n");
-    vPortFree(send_buf);
 }
 
 static void iperf_client_tcp_entry(const char *name)
 {
     int host_len;
-    char *host;
+    iperf_param_t *iperf_param;
+
+    iperf_param = pvPortMalloc(sizeof(iperf_param_t));
+    if (iperf_param == NULL) {
+        printf("[IPC] Malloc error\r\n");
+        goto _ERROUT;
+    }
+
+    memset(iperf_param, 0, sizeof(iperf_param_t));
 
     host_len = strlen(name) + 4;
-    host = pvPortMalloc(host_len);//mem will be free in tcpc_entry
-    strcpy(host, name);
-    aos_task_new("ipc", iperf_client_tcp, host, 4096);
+    iperf_param->host = pvPortMalloc(host_len);//mem will be free in tcpc_entry
+    if (iperf_param->host == NULL) {
+        printf("[IPC] Malloc error\r\n");
+        goto _ERROUT;
+    }
+    strcpy(iperf_param->host, name);
+
+    iperf_param->port = IPERF_PORT;
+
+    aos_task_new("ipc", iperf_client_tcp, (void *)iperf_param, 4096);
+    return;
+
+_ERROUT:
+    if (iperf_param->host) vPortFree(iperf_param->host);
+    if (iperf_param) vPortFree(iperf_param);
+    return;
 }
 
 static void iperf_client_udp(void *arg)
 {
     int i;
-    int sock;
-    int ret;
+    int sock = -1;
+    int ret = -1;
 
     uint8_t *send_buf;
     int sentlen;
@@ -223,113 +285,114 @@ static void iperf_client_udp(void *arg)
     uint32_t tick0, tick1, tick2;
     struct sockaddr_in laddr, raddr;
     UDP_datagram udp_header, *udp_header_buf;
-    char *host = (char*) arg;
+    iperf_param_t *iperf_param = (iperf_param_t *)arg;
 
     char speed[64] = { 0 };
     float f_min = 8000.0, f_max = 0.0;
 
+    exit_flag = 0;
+
     send_buf = (uint8_t *) pvPortMalloc (IPERF_BUFSZ_UDP);
     if (!send_buf) {
-        vPortFree(arg);
-        return;
+        goto __exit;
     }
 
     for (i = 0; i < IPERF_BUFSZ_UDP; i ++) {
         send_buf[i] = i & 0xff;
     }
 
-        sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-        if (sock < 0)
+    sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (sock < 0)
+    {
+        printf("create socket failed!\r\n");
+        goto __exit;
+    }
+
+    memset(&laddr, 0, sizeof(struct sockaddr_in));
+    laddr.sin_family = PF_INET;
+    laddr.sin_port = htons(IPERF_PORT_LOCAL);
+    laddr.sin_addr.s_addr = INADDR_ANY;
+
+    ret = bind(sock, (struct sockaddr*)&laddr, sizeof(laddr));
+    if (ret == -1)
+    {
+        printf("Bind failed!\r\n");
+        goto __exit;
+    }
+
+    printf("bind UDP socket successfully!\r\n");
+
+    memset(&raddr, 0, sizeof(struct sockaddr_in));
+    raddr.sin_family = PF_INET;
+    raddr.sin_port = htons(iperf_param->port);
+    raddr.sin_addr.s_addr = inet_addr(iperf_param->host);
+
+    sentlen = 0;
+
+    udp_header_buf = (UDP_datagram*)send_buf;
+    udp_header.id = 0;
+    udp_header.tv_sec = 0;
+    udp_header.tv_usec = 0;
+
+    tick0 = xTaskGetTickCount();
+    tick1 = tick0;
+    while (!exit_flag) {
+        tick2 = xTaskGetTickCount();
+        if (tick2 - tick1 >= 1000 * 5)
         {
-            printf("create socket failed!\r\n");
-            vTaskDelay(1000);
-            vPortFree(arg);
-            return;
-        }
+            float f_now, f_avg;
 
-        memset(&laddr, 0, sizeof(struct sockaddr_in));
-        laddr.sin_family = PF_INET;
-        laddr.sin_port = htons(IPERF_PORT_LOCAL);
-        laddr.sin_addr.s_addr = inet_addr("0.0.0.0");
+            f_now = (float)(sentlen)  / 125 / (((int32_t)tick2 - (int32_t)tick1)) * 1000;
+            f_now /= 1000.0f;
+            bytes_transfered += sentlen;
+            f_avg = (float)(bytes_transfered)  / 125 / (((int32_t)tick2 - (int32_t)tick0)) * 1000;
+            f_avg /= 1000.0f;
 
-        ret = bind(sock, (struct sockaddr*)&laddr, sizeof(laddr));
-        if (ret == -1)
-        {
-            printf("Bind failed!\r\n");
-            lwip_close(sock);
-
-            vTaskDelay(1000);
-            vPortFree(arg);
-            return;
-        }
-
-        printf("bind UDP socket successfully!\r\n");
-
-        memset(&raddr, 0, sizeof(struct sockaddr_in));
-        raddr.sin_family = PF_INET;
-        raddr.sin_port = htons(IPERF_PORT);
-        raddr.sin_addr.s_addr = inet_addr(host);
-
-        sentlen = 0;
-
-        udp_header_buf = (UDP_datagram*)send_buf;
-        udp_header.id = 0;
-        udp_header.tv_sec = 0;
-        udp_header.tv_usec = 0;
-        tick0 = xTaskGetTickCount();
-        tick1 = tick0;
-        while (1) {
-            tick2 = xTaskGetTickCount();
-            if (tick2 - tick1 >= 1000 * 5)
-            {
-                float f_now, f_avg;
-
-                f_now = (float)(sentlen)  / 125 / (((int32_t)tick2 - (int32_t)tick1)) * 1000;
-                f_now /= 1000.0f;
-                bytes_transfered += sentlen;
-                f_avg = (float)(bytes_transfered)  / 125 / (((int32_t)tick2 - (int32_t)tick0)) * 1000;
-                f_avg /= 1000.0f;
-
-                if (f_now < f_min) {
-                    f_min = f_now;
-                }
-                if (f_max < f_now) {
-                    f_max = f_now;
-                }
-                snprintf(speed, sizeof(speed), "%.4f(%.4f %.4f %.4f) Mbps!\r\n",
-                        f_now,
-                        f_min,
-                        f_avg,
-                        f_max
-                );
-                printf("%s", speed);
-                tick1 = tick2;
-                sentlen = 0;
+            if (f_now < f_min) {
+                f_min = f_now;
             }
+            if (f_max < f_now) {
+                f_max = f_now;
+            }
+            snprintf(speed, sizeof(speed), "%.4f(%.4f %.4f %.4f) Mbps!\r\n",
+                    f_now,
+                    f_min,
+                    f_avg,
+                    f_max
+            );
+            printf("%s", speed);
+            tick1 = tick2;
+            sentlen = 0;
+        }
 
-            udp_header.id++;
-            udp_header_buf->id = htonl(udp_header.id);
-            udp_header_buf->tv_sec = 0;
-            udp_header_buf->tv_usec = 0;
+        udp_header.id++;
+        udp_header_buf->id = htonl(udp_header.id);
+        udp_header_buf->tv_sec = 0;
+        udp_header_buf->tv_usec = 0;
 retry:
-            ret = sendto(sock, send_buf, IPERF_BUFSZ_UDP, 0, (const struct sockaddr*)&raddr, sizeof(raddr));
-            if (ret > 0) {
-                sentlen += ret;
-            }
-
-            if (ret < 0) {
-                if (ERR_MEM == ret) {
-                    goto retry;
-                }
-                break;
-            }
+        ret = sendto(sock, send_buf, IPERF_BUFSZ_UDP, 0, (const struct sockaddr*)&raddr, sizeof(raddr));
+        if (ret > 0) {
+            sentlen += ret;
         }
 
-        lwip_close(sock);
+        if (ret < 0) {
+            if (ERR_MEM == ret) {
+                goto retry;
+            }
+            break;
+        }
+    }
 
-        vTaskDelay(1000*2);
-        printf("disconnected! ret %d\r\n",  ret);
-        vTaskDelete(NULL);
+__exit:
+    if (sock >= 0) lwip_close(sock);
+
+    vTaskDelay(1000*2);
+    exit_flag = 0;
+
+    if (send_buf) vPortFree(send_buf);
+    if (iperf_param->host) vPortFree(iperf_param->host);
+    if (iperf_param) vPortFree(iperf_param);
+    printf("disconnected! ret %d\r\n",  ret);
 }
 
 struct iperf_server_udp_ctx {
@@ -367,7 +430,7 @@ static void iperf_server_udp_recv_fn(void *arg, struct udp_pcb *pcb, struct pbuf
     const ip_addr_t *addr, u16_t port)
 {
     struct iperf_server_udp_ctx *ctx = (struct iperf_server_udp_ctx *)arg;
-    char speed[32] = { 0 };
+    char speed[64] = { 0 };
     UDP_datagram udp_header;
 
     // 接收数据，等待接收时间
@@ -396,7 +459,7 @@ static void iperf_server_udp_recv_fn(void *arg, struct udp_pcb *pcb, struct pbuf
         HTONL_PTR(&hdr->outorder_cnt, ctx->out_of_order_cnt);
         HTONL_PTR(&hdr->datagrams, ctx->datagram_cnt);
 
-        printf("iperf finish...\r\nreceive:%ld,out of order:%ld\r\n",
+        printf("iperf finish...\r\nreceive:%" PRId32 ",out of order:%" PRId32 "\r\n",
             ctx->datagram_cnt, ctx->out_of_order_cnt);
         udp_sendto(pcb, p, addr, port);
 
@@ -420,7 +483,7 @@ static void iperf_server_udp_recv_fn(void *arg, struct udp_pcb *pcb, struct pbuf
         if (ctx->f_max < f_now) {
             ctx->f_max = f_now;
         }
-        snprintf(speed, sizeof(speed), "%.4f(%.4f %.4f %.4f) Mbps, out of order: %lu.\r\n",
+        snprintf(speed, sizeof(speed), "%.4f(%.4f %.4f %.4f) Mbps, out of order: %" PRId32 ".\r\n",
                 f_now,
                 ctx->f_min,
                 f_avg,
@@ -454,29 +517,26 @@ static void iperf_server_udp_recv_fn(void *arg, struct udp_pcb *pcb, struct pbuf
 
 static void iperf_server_udp(void *arg)
 {
-    char *host = (char*) arg;
-    struct udp_pcb *server;
+    iperf_param_t *iperf_param = (iperf_param_t *)arg;
+    struct udp_pcb *server = NULL;
     err_t ret;
     ip_addr_t source_ip;
-    //StaticSemaphore_t comp_signal;
     struct iperf_server_udp_ctx context;
 
     configASSERT(arg != NULL);
 
-    //context.comp_sig_handle = xSemaphoreCreateBinaryStatic(&comp_signal);
-
-    // 创建pcb控制块
+    // FIXME bug here: lwip thread context 创建pcb控制块
     server = udp_new();
     if (!server) {
         printf("Create UDP Control block failed!\r\n");
-        goto _exit_1;
+        goto _exit;
     }
 
-    source_ip.addr = inet_addr(host);
-    ret = udp_bind(server, &source_ip, IPERF_PORT);
+    ipaddr_aton(IPERF_IP_LOCAL, &source_ip);
+    ret = udp_bind(server, &source_ip, iperf_param->port);
     if (ret != ERR_OK) {
         printf("Bind failed!\r\n");
-        goto _exit_2;
+        goto _exit;
     }
 
     printf("bind UDP socket successfully!\r\n");
@@ -487,39 +547,72 @@ static void iperf_server_udp(void *arg)
     udp_recv(server, iperf_server_udp_recv_fn, (void *)&context);
 
     // 等待接收退出信号
-    //xSemaphoreTake(context.comp_sig_handle, portMAX_DELAY);
     while (!context.exit_flag) {
         vTaskDelay(1000);
     }
 
-    printf("ipus exit..\r\n");
+_exit:
+    if (server) udp_remove(server);
+    if (iperf_param->host) vPortFree(iperf_param->host);
+    if (iperf_param) vPortFree(iperf_param);  
 
-_exit_2:
-    udp_remove(server);
-_exit_1:
-    vPortFree(arg); // XXX 检查前面是否释放
+    printf("ipus exit..\r\n");
 }
 
 static void iperf_client_udp_entry(const char *name)
 {
     int host_len;
-    char *host;
+    iperf_param_t *iperf_param;
+
+    iperf_param = pvPortMalloc(sizeof(iperf_param_t));
+    if (iperf_param == NULL) {
+        printf("[IPC] Malloc error\r\n");
+        goto _ERROUT;
+    }
+
+    memset(iperf_param, 0, sizeof(iperf_param_t));
 
     host_len = strlen(name) + 4;
-    host = pvPortMalloc(host_len);//mem will be free in tcpc_entry
-    strcpy(host, name);
-    aos_task_new("ipu", iperf_client_udp, host, 4096);
+    iperf_param->host = pvPortMalloc(host_len);//mem will be free in tcpc_entry
+    if (iperf_param->host == NULL) {
+        printf("[IPC] Malloc error\r\n");
+        goto _ERROUT;
+    }
+    strcpy(iperf_param->host, name);
+
+    iperf_param->port = IPERF_PORT;
+
+    aos_task_new("ipu", iperf_client_udp, (void *)iperf_param, 4096);
+    return;
+
+_ERROUT:
+    if (iperf_param->host) vPortFree(iperf_param->host);
+    if (iperf_param) vPortFree(iperf_param);
+    return;
 }
 
 static void iperf_server_udp_entry(const char *name)
 {
-    int host_len;
-    char *host;
 
-    host_len = strlen(name) + 1;
-    host = pvPortMalloc(host_len);
-    strcpy(host, name);
-    aos_task_new("ipus", iperf_server_udp, host, 4096);
+    iperf_param_t *iperf_param;
+
+    iperf_param = pvPortMalloc(sizeof(iperf_param_t));
+    if (iperf_param == NULL) {
+        printf("[IPC] Malloc error\r\n");
+        goto _ERROUT;
+    }
+
+    memset(iperf_param, 0, sizeof(iperf_param_t));
+
+    iperf_param->port = IPERF_PORT;
+
+    aos_task_new("ipus", iperf_server_udp, (void *)iperf_param, 4096);
+    return;
+
+_ERROUT:
+    if (iperf_param->host) vPortFree(iperf_param->host);
+    if (iperf_param) vPortFree(iperf_param);
+    return;
 }
 
 static void iperf_server(void *arg)
@@ -529,10 +622,11 @@ static void iperf_server(void *arg)
     uint32_t tick0, tick1, tick2;
     int sock = -1, connected, bytes_received, recvlen;
     struct sockaddr_in server_addr, client_addr;
-    char speed[32] = { 0 };
-    char *host = (char*)arg;
+    char speed[64] = { 0 };
+    iperf_param_t *iperf_param = (iperf_param_t *)arg;
     uint64_t bytes_transfered = 0;
     float f_min = 8000.0, f_max = 0.0;
+    exit_flag = 0;
 
     recv_data = (uint8_t *)pvPortMalloc(IPERF_BUFSZ);
     if (recv_data == NULL)
@@ -541,7 +635,6 @@ static void iperf_server(void *arg)
         goto __exit;
     }
 
-    (void) host;
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         printf("Socket error\r\n");
@@ -549,7 +642,7 @@ static void iperf_server(void *arg)
     }
 
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(IPERF_PORT);
+    server_addr.sin_port = htons(iperf_param->port);
     server_addr.sin_addr.s_addr = INADDR_ANY;
     memset(&(server_addr.sin_zero), 0x0, sizeof(server_addr.sin_zero));
 
@@ -563,7 +656,7 @@ static void iperf_server(void *arg)
         goto __exit;
     }
 
-    while (1) {
+    while (!exit_flag) {
         sin_size = sizeof(struct sockaddr_in);
 
         connected = accept(sock, (struct sockaddr *)&client_addr, (socklen_t *)&sin_size);
@@ -584,7 +677,7 @@ static void iperf_server(void *arg)
         recvlen = 0;
         tick0 = xTaskGetTickCount();
         tick1 = tick0;
-        while (1) {
+        while (!exit_flag) {
             bytes_received = recv(connected, recv_data, IPERF_BUFSZ, 0);
             if (bytes_received <= 0) break;
 
@@ -626,18 +719,33 @@ static void iperf_server(void *arg)
 __exit:
     if (sock >= 0) closesocket(sock);
     if (recv_data) vPortFree(recv_data);
-    if (arg) vPortFree(arg);
+    if (iperf_param->host) vPortFree(iperf_param->host);
+    if (iperf_param) vPortFree(iperf_param);
+    exit_flag = 0;
+    printf("ips exit..\r\n");
 }
 
 static void iperf_server_entry(const char *name)
 {
-    int host_len;
-    char *host;
+    iperf_param_t *iperf_param;
 
-    host_len = strlen(name) + 4;
-    host = pvPortMalloc(host_len);//mem will be free in tcpc_entry
-    strcpy(host, name);
-    aos_task_new("ips", iperf_server, host, 4096);
+    iperf_param = pvPortMalloc(sizeof(iperf_param_t));
+    if (iperf_param == NULL) {
+        printf("[IPC] Malloc error\r\n");
+        goto _ERROUT;
+    }
+
+    memset(iperf_param, 0, sizeof(iperf_param_t));
+
+    iperf_param->port = IPERF_PORT;
+
+    aos_task_new("ips", iperf_server, (void *)iperf_param, 4096);
+    return;
+
+_ERROUT:
+    if (iperf_param->host) vPortFree(iperf_param->host);
+    if (iperf_param) vPortFree(iperf_param);
+    return;
 }
 
 static void ipc_test_cmd(char *buf, int len, int argc, char **argv)
@@ -646,6 +754,7 @@ static void ipc_test_cmd(char *buf, int len, int argc, char **argv)
         printf(DEBUG_HEADER "[IPC] Connecting with default address " DEFAULT_HOST_IP "\r\n");
         iperf_client_tcp_entry(DEFAULT_HOST_IP);
     } else if (2 == argc) {
+        printf(DEBUG_HEADER "[IPC] Connecting with default address %s\r\n", argv[1]);
         iperf_client_tcp_entry(argv[1]);
     } else {
         printf(DEBUG_HEADER  "[IPC] illegal address\r\n");
@@ -656,7 +765,7 @@ static void ips_test_cmd(char *buf, int len, int argc, char **argv)
 {
     if (1 == argc) {
         puts(DEBUG_HEADER "[IPS] Starting iperf server on 0.0.0.0\r\n");
-        iperf_server_entry(DEFAULT_HOST_IP);
+        iperf_server_entry(IPERF_IP_LOCAL);
     } else if (2 == argc) {
         iperf_server_entry(argv[1]);
     } else {
@@ -670,6 +779,7 @@ static void ipu_test_cmd(char *buf, int len, int argc, char **argv)
         printf(DEBUG_HEADER "[IPU] Connecting with default address " DEFAULT_HOST_IP "\r\n");
         iperf_client_udp_entry(DEFAULT_HOST_IP);
     } else if (2 == argc) {
+        printf(DEBUG_HEADER "[IPU] Connecting with default address %s\r\n", argv[1]);
         iperf_client_udp_entry(argv[1]);
     } else {
         printf(DEBUG_HEADER  "[IPU] illegal address\r\n");
@@ -681,12 +791,108 @@ static void ipus_test_cmd(char *buf, int len, int argc, char **argv)
 {
     if (1 == argc) {
         printf(DEBUG_HEADER "[IPUS] Connecting with default address 0.0.0.0\r\n");
-        iperf_server_udp_entry("0.0.0.0");
+        iperf_server_udp_entry(IPERF_IP_LOCAL);
     } else if (2 == argc) {
         iperf_server_udp_entry(argv[1]);
     } else {
         printf(DEBUG_HEADER  "[IPUS] illegal address\r\n");
     }
+}
+
+static void iperf_exit_cmd(char *buf, int len, int argc, char **argv)
+{
+    exit_flag = 1;
+}
+
+static void iperf_cmd(char *buf, int len, int argc, char **argv)
+{
+    iperf_param_t *iperf_param;
+    getopt_env_t getopt_env;
+    int opt, host_len, server_client = IPERF_CLIENT, tcp_udp = IPERF_TCP;
+
+    iperf_param = pvPortMalloc(sizeof(iperf_param_t));
+    if (iperf_param == NULL) {
+        printf("[IPC] Malloc error\r\n");
+        goto _ERROUT;
+    }
+
+    memset(iperf_param, 0, sizeof(iperf_param_t));
+    utils_getopt_init(&getopt_env, 0);
+
+    while ((opt = utils_getopt(&getopt_env, argc, argv, "c:p:su")) != -1) {
+        switch (opt) {
+        case 'c':
+            host_len = strlen(getopt_env.optarg) + 4;
+            iperf_param->host = pvPortMalloc(host_len);//mem will be free in tcpc_entry
+            if (NULL == iperf_param->host) {
+                printf("[TCPC] run out of mem for host alloc\r\n");
+                goto _ERROUT;
+            }
+            strcpy(iperf_param->host, getopt_env.optarg);
+            break;
+
+        case 'p':
+            iperf_param->port = atoi(getopt_env.optarg);
+            break;
+
+        case 's':
+            server_client = IPERF_SERVER;
+            break;
+
+        case 'u':
+            tcp_udp = IPERF_UDP;
+            break;
+
+        case '?':
+            printf("unknow option: %c\r\n", getopt_env.optopt);
+            goto _ERROUT;
+        }
+    }
+
+    if ((NULL != iperf_param->host) && (server_client == IPERF_SERVER)) {
+        printf("server and client can't be set at the time\r\n");
+        goto _ERROUT;
+    }
+
+    if (iperf_param->port == 0) {
+        iperf_param->port = IPERF_PORT;
+    }
+
+    if (server_client == IPERF_CLIENT) {
+        if (NULL == iperf_param->host) {
+            host_len = strlen(DEFAULT_HOST_IP) + 4;
+            iperf_param->host = pvPortMalloc(host_len);//mem will be free in tcpc_entry
+            if (NULL == iperf_param->host) {
+                printf("[TCPC] run out of mem for host alloc\r\n");
+                goto _ERROUT;
+            }
+            strcpy(iperf_param->host, DEFAULT_HOST_IP);
+        }
+
+        if (tcp_udp == IPERF_TCP) {
+            printf(DEBUG_HEADER "[IPC] Connecting with default address %s port %d\r\n", iperf_param->host ? iperf_param->host: DEFAULT_HOST_IP, iperf_param->port);
+            aos_task_new("ipc", iperf_client_tcp, (void *)iperf_param, 4096);
+        } else if (tcp_udp == IPERF_UDP) {
+            printf(DEBUG_HEADER "[IPU] Connecting with default address %s port %d\r\n", iperf_param->host ? iperf_param->host: DEFAULT_HOST_IP, iperf_param->port);
+            aos_task_new("ipu", iperf_client_udp, (void *)iperf_param, 4096);
+        }
+        return;
+    } else if (server_client == IPERF_SERVER) {
+        if (tcp_udp == IPERF_TCP) {
+            printf(DEBUG_HEADER "[IPS] Starting iperf server on %s port %d\r\n", IPERF_IP_LOCAL, iperf_param->port);
+            aos_task_new("ips", iperf_server, (void *)iperf_param, 4096);
+        } else if (tcp_udp == IPERF_UDP) {
+            printf(DEBUG_HEADER "[IPUS] Starting iperf server on %s port %d\r\n", IPERF_IP_LOCAL, iperf_param->port);
+            aos_task_new("ipus", iperf_server_udp, (void *)iperf_param, 4096);
+        }
+        return;
+    }
+    
+_ERROUT:
+    if (iperf_param->host) vPortFree(iperf_param->host);
+    if (iperf_param) vPortFree(iperf_param);
+    printf("[USAGE]: %s [-s] [-c <host>] [-p <port>] [-u]\r\n", argv[0]);
+    return;
 }
 
 // STATIC_CLI_CMD_ATTRIBUTE makes this(these) command(s) static
@@ -695,6 +901,8 @@ const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
     { "ips", "iperf TCP server", ips_test_cmd},
     { "ipu", "iperf UDP client", ipu_test_cmd},
     { "ipus", "iperf UDP server", ipus_test_cmd},
+    { "iperf_stop", "stop iperf", iperf_exit_cmd},
+    // { "iperf", "iperf cmd", iperf_cmd},
 };
 
 int network_netutils_iperf_cli_register()

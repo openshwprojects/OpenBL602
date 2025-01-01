@@ -11,7 +11,7 @@
 #include <zephyr/types.h>
 #include <stddef.h>
 #include <string.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <byteorder.h>
 #include <zephyr.h>
 
@@ -20,6 +20,7 @@
 #include <uuid.h>
 #include <gatt.h>
 #include "hog.h"
+#include "log.h"
 
 enum {
 	HIDS_REMOTE_WAKE = BIT(0),
@@ -112,7 +113,7 @@ static ssize_t read_report(struct bt_conn *conn,
 static void input_ccc_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
 	simulate_input = (value == BT_GATT_CCC_NOTIFY) ? 1 : 0;
-	printf("simulate_input = [%d]\r\n",simulate_input);
+	BT_WARN("simulate_input = [%d]\r\n",simulate_input);
 }
 
 static ssize_t read_input_report(struct bt_conn *conn,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Bouffalolab.
+ * Copyright (c) 2016-2022 Bouffalolab.
  *
  * This file is part of
  *     *** Bouffalolab Software Dev Kit ***
@@ -27,6 +27,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 /*
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -76,7 +77,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <utils_getopt.h>
-#include <bl_sec.h>
 #include <cli.h>
 #include <ping.h>
 #include <utils_memp.h>
@@ -134,7 +134,7 @@ static u8_t ping_recv(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_a
             find_hdr = find_and_extract(&env->req_list, iecho->seqno);
 
             if (find_hdr) {
-                printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%lu ms\r\n ", p->tot_len, ipaddr_ntoa(&env->dest), ntohs(iecho->seqno), *((uint8_t *)p->payload + 8), (sys_now() - find_hdr->send_time));
+                printf("%" PRId16 " bytes from %s: icmp_seq=%d ttl=%d time=%" PRId32 " ms\r\n ", p->tot_len, ipaddr_ntoa(&env->dest), ntohs(iecho->seqno), *((uint8_t *)p->payload + 8), (sys_now() - find_hdr->send_time));
 
                 utils_memp_free(env->pool, find_hdr);
                 env->node_num--;
@@ -269,6 +269,10 @@ static int ping_init(void *arg)
 
     return 0;
 }
+
+#ifdef BL616
+extern int bl_rand();
+#endif
 
 struct ping_var *ping_api_init(u16_t interval, u16_t size, u32_t count, u16_t timeout, ip_addr_t *dest)
 {

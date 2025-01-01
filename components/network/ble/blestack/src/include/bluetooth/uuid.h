@@ -69,11 +69,11 @@ struct bt_uuid_128 {
 }
 
 #define BT_UUID_DECLARE_16(value) \
-	((struct bt_uuid *) (&(struct bt_uuid_16) BT_UUID_INIT_16(value)))
+	((struct bt_uuid *) ((struct bt_uuid_16[]) {BT_UUID_INIT_16(value)}))
 #define BT_UUID_DECLARE_32(value) \
-	((struct bt_uuid *) (&(struct bt_uuid_32) BT_UUID_INIT_32(value)))
+	((struct bt_uuid *) ((struct bt_uuid_32[]) {BT_UUID_INIT_32(value)}))
 #define BT_UUID_DECLARE_128(value...) \
-	((struct bt_uuid *) (&(struct bt_uuid_128) BT_UUID_INIT_128(value)))
+	((struct bt_uuid *) ((struct bt_uuid_128[]) {BT_UUID_INIT_128(value)}))
 
 #define BT_UUID_16(__u) CONTAINER_OF(__u, struct bt_uuid_16, uuid)
 #define BT_UUID_32(__u) CONTAINER_OF(__u, struct bt_uuid_32, uuid)
@@ -137,6 +137,10 @@ struct bt_uuid_128 {
  *  @brief Generic Attribute
  */
 #define BT_UUID_GATT                      BT_UUID_DECLARE_16(0x1801)
+/** @def BT_UUID_IAS
+ *  @brief Immediate Alert Service
+ */
+ #define BT_UUID_IAS                      BT_UUID_DECLARE_16(0x1802)
 /** @def BT_UUID_CTS
  *  @brief Current Time Service
  */
@@ -257,6 +261,10 @@ struct bt_uuid_128 {
  *  @brief GATT Characteristic Service Changed
  */
 #define BT_UUID_GATT_SC                   BT_UUID_DECLARE_16(0x2a05)
+/** @def BT_UUID_IAS_ALERT_LEVEL
+ *  @brief IAS Characteristic Alert Level
+ */
+#define BT_UUID_IAS_ALERT_LEVEL         BT_UUID_DECLARE_16(0x2a06)
 /** @def BT_UUID_BAS_BATTERY_LEVEL
  *  @brief BAS Characteristic Battery Level
  */

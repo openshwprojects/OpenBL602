@@ -114,18 +114,19 @@ export COMPONENT_DIRS
 # Find all component names. The component names are the same as the
 # directories they're in, so /bla/components/mycomponent/bouffalo.mk -> mycomponent.
 # using by https://stackoverflow.com/questions/3774568/makefile-issue-smart-way-to-scan-directory-tree-for-c-files
-
-ifeq ($(OS),Windows_NT)
+ifeq ("$(wildcard ${BL60X_SDK_PATH}/components.mk)","")
 rwildcard = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2))
 COMPONENTS_RAL_PATH :=  $(dir $(foreach cd,$(COMPONENT_DIRS),                       \
 						$(call rwildcard,$(cd)/,bouffalo.mk) 						\
 				))
-else
-COMPONENTS_RAL_PATH :=  $(dir $(shell find $(BL60X_SDK_PATH)/ -name "bouffalo.mk"))
-endif
-
 COMPONENTS := $(sort $(foreach comp,$(COMPONENTS_RAL_PATH),$(lastword $(subst /, ,$(comp)))))
 COMPONENTS_REAL_PATH := $(patsubst %/,%,$(COMPONENTS_RAL_PATH))
+else
+COMPONENTS := $(notdir $(PROJECT_PATH))
+COMPONENTS_REAL_PATH := $(PROJECT_PATH)/$(notdir $(PROJECT_PATH))
+include $(BL60X_SDK_PATH)/components.mk
+$(info use existing components.mk file)
+endif
 #endif
 # After a full manifest of component names is determined, subtract the ones explicitly omitted by the project Makefile.
 ifdef INCLUDE_COMPONENTS
@@ -135,7 +136,7 @@ include_path += $(filter %/$(1), $(COMPONENTS_REAL_PATH))
 endef
 $(foreach comp,$(INCLUDE_COMPONENTS),$(eval $(call include_comps_add,$(comp))))
 INCLUDE_COMPONENTS_REAL_PATH := $(include_path)
-# include components 
+# include components
 COMPONENTS := $(filter $(INCLUDE_COMPONENTS), $(COMPONENTS))
 COMPONENTS_REAL_PATH := $(filter $(INCLUDE_COMPONENTS_REAL_PATH), $(COMPONENTS_REAL_PATH))
 endif
@@ -151,7 +152,6 @@ export COMPONENTS
 #COMPONENT_PATHS := $(foreach comp,$(COMPONENTS),$(firstword $(foreach cd,$(COMPONENT_DIRS),$(wildcard $(dir $(cd))$(comp) $(cd)/$(comp)))))
 #COMPONENT_PATHS := $(patsubst %/,%,$(COMPONENTS_RAL_PATH))
 COMPONENT_PATHS := $(COMPONENTS_REAL_PATH)
-COMPONENT_PATHS += $(BL60X_SDK_PATH)/customer_app/bl602_sharedApp/bl602_sharedApp/shared
 export COMPONENT_PATHS
 
 
@@ -208,37 +208,28 @@ ifeq ("$(wildcard ${BL60X_SDK_PATH}/version.mk)","")
 BL_SDK_VER := $(shell cd ${BL60X_SDK_PATH} && git describe --always --tags --dirty)
 EXTRA_CPPFLAGS ?=
 EXTRA_CPPFLAGS += -D BL_SDK_VER=\"$(BL_SDK_VER)\"
-ifeq ("$(CONFIG_CHIP_NAME)", "BL602")
-BL_SDK_PHY_VER := $(shell cd ${BL60X_SDK_PATH}/components/bl602/bl602_wifi/plf/refip/src/driver/phy/bl602_phy_rf/ && git describe --always --tags --dirty)
-BL_SDK_RF_VER := $(shell cd ${BL60X_SDK_PATH}/components/bl602/bl602_wifi/plf/refip/src/driver/phy/bl602_phy_rf/rf && git describe --always --tags --dirty)
-BL_SDK_STDDRV_VER := $(shell cd ${BL60X_SDK_PATH}/components/bl602/bl602_std/bl602_std && git describe --always --tags --dirty)
-EXTRA_CPPFLAGS += -D BL_SDK_PHY_VER=\"$(BL_SDK_PHY_VER)\"
-EXTRA_CPPFLAGS += -D BL_SDK_RF_VER=\"$(BL_SDK_RF_VER)\"
-EXTRA_CPPFLAGS += -D BL_SDK_STDDRV_VER=\"$(BL_SDK_STDDRV_VER)\"
-endif
-ifeq ("$(CONFIG_CHIP_NAME)", "BL702")
-BL_SDK_STDDRV_VER := $(shell cd ${BL60X_SDK_PATH}/components/bl702/bl702_std/BSP_Driver && git describe --always --tags --dirty)
-BL_SDK_STDCOM_VER := $(shell cd ${BL60X_SDK_PATH}/components/bl702/bl702_std/BSP_Common && git describe --always --tags --dirty)
-BL_SDK_RF_VER := $(shell cd ${BL60X_SDK_PATH}/components/bl702/bl702_rf && git describe --always --tags --dirty)
-EXTRA_CPPFLAGS += -D BL_SDK_STDDRV_VER=\"$(BL_SDK_STDDRV_VER)\"
-EXTRA_CPPFLAGS += -D BL_SDK_STDCOM_VER=\"$(BL_SDK_STDCOM_VER)\"
-EXTRA_CPPFLAGS += -D BL_SDK_RF_VER=\"$(BL_SDK_RF_VER)\"
-endif
+
 $(info use git describe to generate Version Define)
 else
 include $(BL60X_SDK_PATH)/version.mk
-$(info use exsting version.mk file)
+$(info use existing version.mk file)
 endif
 BL_CHIP_NAME := ${CONFIG_CHIP_NAME}
 
 # Set default LDFLAGS
 # -nostdlib
-# --specs=nosys.specs 
+# --specs=nosys.specs
 EXTRA_LDFLAGS ?= -Wl,--cref -nostartfiles
-ifeq ($(CONFIG_ZIGBEE), 1)
-EXTRA_LDFLAGS += --specs=nosys.specs
-endif
 
+ifeq ("$(CONFIG_CHIP_NAME)", "VIRTEX7")
+LDFLAGS ?=  \
+	-march=rv32imc -mabi=ilp32 \
+	-g3 -nostartfiles -Wl,--noinhibit-exec,--gc-sections,--relax -Wl,--cref \
+	-Wl,--start-group       \
+	$(COMPONENT_LDFLAGS) \
+	-Wl,--end-group \
+
+else
 E21_CPU_LDFLAGS := -march=rv32imfc \
                    -mabi=ilp32f
 
@@ -251,6 +242,7 @@ LDFLAGS ?=  $(E21_CPU_LDFLAGS) \
 	-Wl,--end-group \
 	-Wl,-EL \
 	-lm
+endif
 
 # Set default CPPFLAGS, CFLAGS, CXXFLAGS
 # These are exported so that components can use them when compiling.
@@ -261,8 +253,10 @@ LDFLAGS ?=  $(E21_CPU_LDFLAGS) \
 #  before including project.mk. Default flags will be added before the ones provided in application Makefile.
 
 # CPPFLAGS used by C preprocessor
-# If any flags are defined in application Makefile, add them at the end. 
+# If any flags are defined in application Makefile, add them at the end.
 CPPFLAGS ?=
+# Enable GNU extensions
+CPPFLAGS += -D _GNU_SOURCE
 ifeq ($(CONFIG_ENABLE_ACP),1)
 CPPFLAGS += -DCONF_USER_ENABLE_ACP
 endif
@@ -300,14 +294,19 @@ endif
 COMMON_FLAGS = \
 	-ffunction-sections -fdata-sections \
 	-fstrict-volatile-bitfields \
-    -fshort-enums
+	-fcommon \
+
+# Add -fshort-enums temporarily for bl702
+ifeq ("$(CONFIG_CHIP_NAME)", "BL702")
+COMMON_FLAGS += -fshort-enums
+endif
 
 
 COMMON_FLAGS_M4_EXT := 	\
 	-ffreestanding \
 	-fno-strict-aliasing
 
-		
+
 COMMON_FLAGS += $(COMMON_FLAGS_M4_EXT)
 
 ifdef CONFIG_STACK_CHECK_NORM
@@ -322,15 +321,23 @@ endif
 ifeq ($(CONFIG_ENABLE_FP),1)
 COMMON_FLAGS += -fno-omit-frame-pointer -DCONF_ENABLE_FRAME_PTR
 endif
+ifeq ($(CONF_ENABLE_FUNC_BACKTRACE),1)
+PROJ_ELF:=$(PROJECT_NAME).elf
+COMMON_FLAGS += -fno-omit-frame-pointer -DCONF_ENABLE_FUNC_BACKTRACE_ELF=$(PROJ_ELF) -DCONF_BUILD_PATH=$(BUILD_DIR_BASE)/$(PROJ_ELF)
+endif
 
 ifeq ($(CONFIG_ENABLE_STACK_OVERFLOW_CHECK),1)
 COMMON_FLAGS += -finstrument-functions -DCONF_ENABLE_STACK_OVERFLOW_CHECK
 endif
 
+ifeq ("$(CONFIG_CHIP_NAME)", "VIRTEX7")
+OPTIMIZATION_FLAGS = -O2
+else
 ifdef CONFIG_OPTIMIZATION_LEVEL_RELEASE
 OPTIMIZATION_FLAGS = -Os
 else
 OPTIMIZATION_FLAGS = -Os
+endif
 endif
 
 ifdef CONFIG_OPTIMIZATION_ASSERTIONS_DISABLED
@@ -345,6 +352,24 @@ DEBUG_FLAGS ?= -gdwarf
 # If any flags are defined in application Makefile, add them at the end.
 EXTRA_CFLAGS ?=
 
+ifeq ("$(CONFIG_CHIP_NAME)", "VIRTEX7")
+E21_CPU_CFLAGS := -march=rv32imc -mabi=ilp32
+
+ASMFLAGS := $(E21_CPU_CFLAGS)
+CFLAGS := $(strip \
+	-march=rv32imc -mabi=ilp32 \
+	-O2 -Wall -Wchar-subscripts -Wformat -Wuninitialized -Winit-self -Wignored-qualifiers -Wswitch-default -Wunused -Wundef -Werror -Wno-switch-default -Wno-unused -fdata-sections -ffunction-sections -g3 \
+	-fmessage-length=0 -std=gnu99 \
+	-save-temps=obj \
+	)
+
+CXXFLAGS := $(strip \
+	-march=rv32imc -mabi=ilp32 \
+	-O2 -Wall -Wchar-subscripts -Wformat -Wuninitialized -Winit-self -Wignored-qualifiers -Wswitch-default -Wunused -Wundef -Werror -Wno-switch-default -Wno-unused -fdata-sections -ffunction-sections -g3 \
+	-fmessage-length=0 -std=gnu99 \
+	-save-temps=obj \
+	)
+else
 E21_CPU_CFLAGS := -march=rv32imfc \
                    -mabi=ilp32f
 
@@ -359,8 +384,6 @@ CFLAGS := $(strip \
 	$(E21_CPU_CFLAGS) \
 	$(EXTRA_CFLAGS)) \
 	-save-temps=obj
-	
-CFLAGS += -DPLATFORM_BL602=1
 
 CXXFLAGS := $(strip \
 	-std=c++11 \
@@ -384,8 +407,10 @@ CXXFLAGS := $(strip \
 	-Wundef \
 	-fno-rtti -fno-exceptions \
 	-save-temps=obj \
+	-fno-use-cxa-atexit\
 	)
 
+endif
 export CFLAGS CPPFLAGS CXXFLAGS ASMFLAGS
 
 # Set default values that were not previously defined
@@ -447,8 +472,10 @@ $(APP_ELF): $(foreach libcomp,$(COMPONENT_LIBRARIES),$(BUILD_DIR_BASE)/$(libcomp
 	$(summary) LD $(patsubst $(PWD)/%,%,$@)
 ifeq ($(CONFIG_ZIGBEE), 1)
 	$(CXX) -o $@ $(LDFLAGS) -Wl,-Map=$(APP_MAP)
+else ifeq ($(CONFIG_CPP_ENABLE), 1)
+	$(CXX) -o $@ $(LDFLAGS) -Wl,-Map=$(APP_MAP)
 else
-	$(CC) $(LDFLAGS) -o $@ -Wl,-Map=$(APP_MAP)
+	$(CC) $(LDFLAGS) -o $@ -Wl,-Map=$(APP_MAP) $(shell find build_out/ -name bugkiller_*.o)
 endif
 
 all_binaries: $(APP_BIN)
@@ -456,32 +483,35 @@ all_binaries: $(APP_BIN)
 ## TODO move to bl60x_elftool component
 $(APP_BIN): $(APP_ELF)
 	@echo "Generating BIN File to $@"
+ifeq ("$(CONFIG_CHIP_NAME)", "VIRTEX7")
+	$(OBJCOPY) -O ihex $< $(@:.bin=.hex)
+else
 ifeq ($(CONFIG_ENABLE_ACP),1)
-	$(OBJCOPY) -S -O binary -R .rom.cpu1 $< $(@:.bin=.cpu0.bin) 
+	$(OBJCOPY) -S -O binary -R .rom.cpu1 -R .bugkiller_command -R .bugkiller $< $(@:.bin=.cpu0.bin)
 	$(OBJCOPY) -S -O binary -j .rom.cpu1 $< $(@:.bin=.cpu1.bin)
 	cp $(@:.bin=.cpu0.bin) $(@:.bin=.acp.bin)
 	dd if=$(@:.bin=.cpu1.bin) of=$(@:.bin=.acp.bin) bs=512 seek=2 conv=notrunc
 	cp $(@:.bin=.acp.bin) $@
 else
 ifeq ($(CONFIG_LINK_ROM),1)
-	$(OBJCOPY) -S -O binary -R .romdata -R .rom $< $@
-	$(OBJCOPY) -S -O binary -j .rom $< $(@:.bin=.rom.bin) 
-	$(OBJCOPY) -S -O binary -j .romdata $< $(@:.bin=.romdata.bin) 
-	$(OBJCOPY) -S -O binary -R .romdata -R .rom $< $(@:.bin=.flash.bin) 
+	$(OBJCOPY) -S -O binary -R .romdata -R .rom -R .bugkiller_command -R .bugkiller $< $@
+	$(OBJCOPY) -S -O binary -j .rom $< $(@:.bin=.rom.bin)
+	$(OBJCOPY) -S -O binary -j .romdata $< $(@:.bin=.romdata.bin)
+	$(OBJCOPY) -S -O binary -R .romdata -R .rom -R .bugkiller_command -R .bugkiller $< $(@:.bin=.flash.bin)
 else
 ifeq ($(CONFIG_GEN_ROM),1)
-	$(OBJCOPY) -S -O binary -R .bleromro -R .bleromrw -R .rtosromro -R .rtosromrw $< $@
-	$(OBJCOPY) -S -O binary -j .bleromro $< $(@:.bin=.bleromro.bin) 
-	$(OBJCOPY) -S -O binary -j .bleromrw $< $(@:.bin=.bleromrw.bin) 
-	$(OBJCOPY) -S -O binary -j .rtosromro $< $(@:.bin=.rtosromro.bin) 
-	$(OBJCOPY) -S -O binary -j .rtosromrw $< $(@:.bin=.rtosromrw.bin) 
-	$(OBJCOPY) -S -O binary -R .bleromro -R .bleromrw -R .rtosromro -R .rtosromrw $< $(@:.bin=.flash.bin) 
+	$(OBJCOPY) -S -O binary -R .bleromro -R .bleromrw -R .rtosromro -R .rtosromrw -R .bugkiller_command -R .bugkiller $< $@
+	$(OBJCOPY) -S -O binary -j .bleromro $< $(@:.bin=.bleromro.bin)
+	$(OBJCOPY) -S -O binary -j .bleromrw $< $(@:.bin=.bleromrw.bin)
+	$(OBJCOPY) -S -O binary -j .rtosromro $< $(@:.bin=.rtosromro.bin)
+	$(OBJCOPY) -S -O binary -j .rtosromrw $< $(@:.bin=.rtosromrw.bin)
+	$(OBJCOPY) -S -O binary -R .bleromro -R .bleromrw -R .rtosromro -R .rtosromrw -R .bugkiller_command -R .bugkiller $< $(@:.bin=.flash.bin)
 else
-	$(OBJCOPY) -S -O binary $< $@
+	$(OBJCOPY) -S -O binary -R .bugkiller_command -R .bugkiller $< $@
 endif
 endif
 endif
-	
+endif
 
 $(BUILD_DIR_BASE):
 	mkdir -p $(BUILD_DIR_BASE)
@@ -542,10 +572,11 @@ app-clean: $(addprefix component-,$(addsuffix -clean,$(notdir $(COMPONENT_PATHS)
 	rm -f $(APP_ELF) $(APP_BIN) $(APP_MAP)
 
 flash: all
-	cd $(BL60X_SDK_PATH)/tools/flash_tool && env SDK_APP_BIN=$(APP_BIN) SDK_BOARD=$(PROJECT_BOARD) SDK_NAME=$(PROJECT_NAME) SDK_MEDIA_BIN=$(APP_MEDIA_BIN) SDK_ROMFS_DIR=$(APP_ROMFS_DIR) SDK_DTS=$(PROJECT_DTS) SDK_XTAL=$(PROJECT_BOARD_XTAL) BL_FLASH_TOOL_INPUT_PATH_cfg2_bin_input=$(APP_BIN) python3 core/bflb_simple_flasher.py bl602 bl602/conf/iot.toml
+	cd $(BL60X_SDK_PATH)/tools/flash_tool && env SDK_APP_BIN=$(APP_BIN) SDK_BOARD=$(PROJECT_BOARD) SDK_NAME=$(PROJECT_NAME) SDK_MEDIA_BIN=$(APP_MEDIA_BIN) SDK_ROMFS_DIR=$(APP_ROMFS_DIR) SDK_DTS=$(PROJECT_DTS) SDK_XTAL=$(PROJECT_BOARD_XTAL) BL_FLASH_TOOL_INPUT_PATH_cfg2_bin_input=$(APP_BIN) ./bflb_iot_tool --chipname=BL602 --baudrate=2000000 --port=/dev/ttyUSB1 --pt=$(PROJECT_PATH)/img_conf/partition_cfg_2M.toml --dts=$(PROJECT_PATH)/img_conf/bl_factory_params_IoTKitA_40M.dts --firmware=$(APP_BIN) 
 
+#burn code to bl602 board, now only support BL602 IOT-DVK-3s platform, if you want to support older bl602 board you need change parameter port to /dev/ttyUSB0 
 flash_only:
-	cd $(BL60X_SDK_PATH)/tools/flash_tool && env SDK_APP_BIN=$(APP_BIN) SDK_BOARD=$(PROJECT_BOARD) SDK_NAME=$(PROJECT_NAME) SDK_MEDIA_BIN=$(APP_MEDIA_BIN) SDK_ROMFS_DIR=$(APP_ROMFS_DIR) SDK_DTS=$(PROJECT_DTS) SDK_XTAL=$(PROJECT_BOARD_XTAL) BL_FLASH_TOOL_INPUT_PATH_cfg2_bin_input=$(APP_BIN) python3 core/bflb_simple_flasher.py bl602 bl602/conf/iot.toml
+	cd $(BL60X_SDK_PATH)/tools/flash_tool && env SDK_APP_BIN=$(APP_BIN) SDK_BOARD=$(PROJECT_BOARD) SDK_NAME=$(PROJECT_NAME) SDK_MEDIA_BIN=$(APP_MEDIA_BIN) SDK_ROMFS_DIR=$(APP_ROMFS_DIR) SDK_DTS=$(PROJECT_DTS) SDK_XTAL=$(PROJECT_BOARD_XTAL) BL_FLASH_TOOL_INPUT_PATH_cfg2_bin_input=$(APP_BIN) ./bflb_iot_tool --chipname=BL602 --baudrate=2000000 --port=/dev/ttyUSB1 --pt=$(PROJECT_PATH)/img_conf/partition_cfg_2M.toml --dts=$(PROJECT_PATH)/img_conf/bl_factory_params_IoTKitA_40M.dts --firmware=$(APP_BIN) 
 
 clean: app-clean
 
@@ -559,7 +590,7 @@ list-components:
 	$(info $(COMPONENTS))
 	$(info $(call dequote,$(SEPARATOR)))
 	$(info EXCLUDE_COMPONENTS (list of excluded names))
-	$(info $(if $(EXCLUDE_COMPONENTS),$(EXCLUDE_COMPONENTS),(none provided)))	
+	$(info $(if $(EXCLUDE_COMPONENTS),$(EXCLUDE_COMPONENTS),(none provided)))
 	$(info $(call dequote,$(SEPARATOR)))
 	$(info COMPONENT_PATHS (paths to all components):)
 	$(foreach cp,$(COMPONENT_PATHS),$(info $(cp)))

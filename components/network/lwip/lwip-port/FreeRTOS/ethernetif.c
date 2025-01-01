@@ -91,8 +91,7 @@ static void low_level_init(struct netif *netif)
   netif->mtu = 1500;
 
   /* Accept broadcast address and ARP traffic */
-	// 2023 - added  | NETIF_FLAG_IGMP; for multicast
-  netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_IGMP;
+  netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP;
 #if 0
 
   s_pxNetIf =netif;
@@ -196,25 +195,3 @@ err_t ethernetif_init(struct netif *netif)
   return ERR_OK;
 }
 
-void set_if(struct netif *netif, char* ip_addr, char* gw_addr, char* nm_addr)
-{
-    ip4_addr_t *ip;
-    ip4_addr_t addr;
-
-    ip = (ip4_addr_t *)&addr;
-
-    /* set ip address */
-    if ((ip_addr != NULL) && ip4addr_aton(ip_addr, &addr)) {
-        netif_set_ipaddr(netif, ip);
-    }
-
-    /* set gateway address */
-    if ((gw_addr != NULL) && ip4addr_aton(gw_addr, &addr)) {
-        netif_set_gw(netif, ip);
-    }
-
-    /* set netmask address */
-    if ((nm_addr != NULL) && ip4addr_aton(nm_addr, &addr)) {
-        netif_set_netmask(netif, ip);
-    }
-}
