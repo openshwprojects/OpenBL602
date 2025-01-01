@@ -566,6 +566,21 @@ free_socket_locked(struct lwip_sock *sock, int is_tcp, struct netconn **conn,
   return 1;
 }
 
+
+int LWIP_GetMaxSockets() {
+	return NUM_SOCKETS;
+}
+int LWIP_GetActiveSockets() {
+	int i;
+	int r=0;
+	for (i = 0; i < NUM_SOCKETS; ++i) {
+		if (sockets[i].conn) {
+			r++;
+		}
+	}
+	return r;
+}
+
 /** Free a socket's leftover members.
  */
 static void

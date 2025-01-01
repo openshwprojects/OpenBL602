@@ -56,7 +56,7 @@ typedef struct adc_ctx {
     uint32_t tsen_v0;
     uint32_t tsen_v1;
     uint16_t tsen_offset;
-    int tsen_data;
+    float tsen_data;
     uint8_t tsen_flag;
 #endif
     uint32_t chan_init_table;
@@ -629,6 +629,12 @@ int hosal_adc_value_get(hosal_adc_dev_t *adc, uint32_t channel, uint32_t timeout
 
 #ifdef CONF_ADC_ENABLE_TSEN
 int hosal_adc_tsen_value_get(hosal_adc_dev_t *adc)
+{
+    hosal_adc_ctx_t *pstctx = (hosal_adc_ctx_t *)adc->priv;
+ 
+    return pstctx->tsen_data;
+}
+float hosal_adc_tsen_value_get_f(hosal_adc_dev_t *adc)
 {
     hosal_adc_ctx_t *pstctx = (hosal_adc_ctx_t *)adc->priv;
  

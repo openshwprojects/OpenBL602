@@ -2,7 +2,9 @@
 
 #include <lwip/tcpip.h>
 #include <sntp.h>
+#ifdef CONFIG_CLI_CMD_ENABLE
 #include <cli.h>
+#endif
 #include <utils_time.h>
 
 void _startup_sntp(void *arg)
@@ -60,6 +62,7 @@ static void cmd_sntp_date(char *buf, int len, int argc, char **argv)
         date.day_of_year
     );
 }
+#ifdef CONFIG_CLI_CMD_ENABLE
 
 // STATIC_CLI_CMD_ATTRIBUTE makes this(these) command(s) static
 const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
@@ -67,7 +70,7 @@ const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
         { "sntp_time", "sntp time", cmd_sntp_time},
         { "sntp_date", "sntp date", cmd_sntp_date},
 };                                                                                   
-
+#endif
 int sntp_cli_init(void)
 {
     // static command(s) do NOT need to call aos_cli_register_command(s) to register.

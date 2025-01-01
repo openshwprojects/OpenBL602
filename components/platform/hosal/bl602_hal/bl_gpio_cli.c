@@ -29,8 +29,9 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#ifdef CONFIG_CLI_CMD_ENABLE
 #include <cli.h>
-
+#endif
 #include "bl_gpio.h"
 
 #include <blog.h>
@@ -113,13 +114,14 @@ static void cmd_gpio_get(char *buf, int len, int argc, char **argv)
         0 == ret ? (val ? "high" : "low") : "Err"
     );
 }
-
+#ifdef CONFIG_CLI_CMD_ENABLE
 // STATIC_CLI_CMD_ATTRIBUTE makes this(these) command(s) static
 const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
     {"gpio-func", "gpio-func pinnum 0/1[0:output, 1:input] 0/1[pullup] 0/1[pulldown]", cmd_gpio_func},
     {"gpio-set", "gpio-set pinnum 0/1", cmd_gpio_set},
     {"gpio-get", "gpio-get pinnum", cmd_gpio_get},
-};                                                                                   
+}; 
+#endif                                                                                  
 
 int bl_gpio_cli_init(void)
 {

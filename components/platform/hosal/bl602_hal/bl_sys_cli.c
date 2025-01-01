@@ -29,7 +29,9 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#ifdef CONFIG_CLI_CMD_ENABLE
 #include <cli.h>
+#endif
 #include <bl602_glb.h>
 #include <blog.h>
 #include <FreeRTOS.h>
@@ -67,11 +69,11 @@ static void cmd_clk_change(char *buf, int len, int argc, char **argv)
         xTaskCreate(clk, (char*)"clk", 512, &clk_div, 20, NULL );
     }
 }
-
+#ifdef CONFIG_CLI_CMD_ENABLE
 const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
     { "clk", "change hdiv and bdiv", cmd_clk_change},
 };
-
+#endif
 int bl_sys_cli_init(void)
 {
     // static command(s) do NOT need to call aos_cli_register_command(s) to register.

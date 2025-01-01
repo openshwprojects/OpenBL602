@@ -77,7 +77,9 @@
 #include <stdlib.h>
 #include <time.h>
 #include <utils_getopt.h>
+#ifdef CONFIG_CLI_CMD_ENABLE
 #include <cli.h>
+#endif
 #include <ping.h>
 #include <utils_memp.h>
 
@@ -404,12 +406,12 @@ static void ping_usage()
 {
     printf("%s", PING_USAGE);
 }
-
+#ifdef CONFIG_CLI_CMD_ENABLE
 // STATIC_CLI_CMD_ATTRIBUTE makes this(these) command(s) static
 const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
     { "ping", PING_USAGE, ping_cmd},
 };
-
+#endif
 int network_netutils_ping_cli_register()
 {
     // static command(s) do NOT need to call aos_cli_register_command(s) to register.

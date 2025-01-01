@@ -43,8 +43,9 @@
 #include <lwip/sockets.h>
 #include <lwip/udp.h>
 #include <aos/kernel.h>
-
+#ifdef CONFIG_CLI_CMD_ENABLE
 #include <cli.h>
+#endif
 #include <netutils/netutils.h>
 #include <bl_timer.h>
 
@@ -894,7 +895,7 @@ _ERROUT:
     printf("[USAGE]: %s [-s] [-c <host>] [-p <port>] [-u]\r\n", argv[0]);
     return;
 }
-
+#ifdef CONFIG_CLI_CMD_ENABLE
 // STATIC_CLI_CMD_ATTRIBUTE makes this(these) command(s) static
 const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
     { "ipc", "iperf TCP client", ipc_test_cmd},
@@ -904,6 +905,7 @@ const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
     { "iperf_stop", "stop iperf", iperf_exit_cmd},
     // { "iperf", "iperf cmd", iperf_cmd},
 };
+#endif
 
 int network_netutils_iperf_cli_register()
 {

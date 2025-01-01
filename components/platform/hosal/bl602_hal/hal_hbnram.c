@@ -34,8 +34,9 @@
 
 #include <bl_sec.h>
 #include "hal_hbnram.h"
-
+#ifdef CONFIG_CLI_CMD_ENABLE
 #include <cli.h>
+#endif
 #include <blog.h>
 /*
  *

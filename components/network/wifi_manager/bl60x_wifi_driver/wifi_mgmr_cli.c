@@ -29,8 +29,9 @@
  */
 #include <stdio.h>
 #include <string.h>
+#ifdef CONFIG_CLI_CMD_ENABLE
 #include <cli.h>
-
+#endif
 #include <bl_os_private.h>
 #include <bl_wifi.h>
 #include <hal_sys.h>
@@ -1169,6 +1170,7 @@ static void cmd_wifi_power_table_update(char *buf, int len, int argc, char **arg
     bl_tpc_update_power_table(power_table_test);
 }
 
+#ifdef CONFIG_CLI_CMD_ENABLE
 // STATIC_CLI_CMD_ATTRIBUTE makes this(these) command(s) static
 const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
         { "rf_dump", "rf dump", cmd_rf_dump},
@@ -1211,7 +1213,8 @@ const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
         { "wifi_edca_dump", "dump EDCA data", wifi_edca_dump_cmd},
         { "wifi_state", "get wifi_state", cmd_wifi_state_get},
         { "wifi_update_power", "Power table test command", cmd_wifi_power_table_update},
-};                                                                                   
+};   
+#endif                                                                                
 
 int wifi_mgmr_cli_init(void)
 {

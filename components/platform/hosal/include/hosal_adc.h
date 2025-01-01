@@ -178,6 +178,7 @@ int hosal_adc_value_get(hosal_adc_dev_t *adc, uint32_t channel, uint32_t timeout
  *	- -1     if an error occurred with any step
  */
 int hosal_adc_tsen_value_get(hosal_adc_dev_t *adc);
+float hosal_adc_tsen_value_get_f(hosal_adc_dev_t *adc);
 
 /**
  * @brief ADC sampling cb register

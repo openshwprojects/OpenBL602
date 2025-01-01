@@ -39,7 +39,9 @@
 #include <FreeRTOS.h>
 #include <task.h>
 #include <event_groups.h>
+#ifdef CONFIG_CLI_CMD_ENABLE
 #include <cli.h>
+#endif
 #include <string.h>
 #include <hal/soc/spi.h>
 #include <aos/kernel.h>

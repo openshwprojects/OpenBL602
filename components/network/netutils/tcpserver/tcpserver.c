@@ -31,7 +31,9 @@
 #include <task.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef CONFIG_CLI_CMD_ENABLE
 #include <cli.h>
+#endif
 #include <aos/kernel.h>
 #include <lwip/sockets.h>
 #include <netutils/netutils.h>
@@ -219,10 +221,11 @@ static void cmd_tcp_server(char *buf, int len, int argc, char **argv)
     xTaskCreate(TCP_Server, "TCP Server", 1024, argv[1], 20, NULL);
 }
 
+#ifdef CONFIG_CLI_CMD_ENABLE
 const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
         { "tcps", "create a tcp server for in a new task", cmd_tcp_server},
 };                                                                                   
-
+#endif
 int network_netutils_tcpserver_cli_register()
 {
     // static command(s) do NOT need to call aos_cli_register_command(s) to register.

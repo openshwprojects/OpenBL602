@@ -29,7 +29,9 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#ifdef CONFIG_CLI_CMD_ENABLE
 #include <cli.h>
+#endif
 #include <bl_wdt.h>
 
 #include <blog.h>
@@ -65,6 +67,7 @@ static void cmd_timer_start(char *buf, int len, int argc, char **argv)
 int bl_timer_tick_enable(void);
     bl_timer_tick_enable();
 }
+#ifdef CONFIG_CLI_CMD_ENABLE
 // STATIC_CLI_CMD_ATTRIBUTE makes this(these) command(s) static
 const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
     {"wdt-init", "wdt-init ms", cmd_wdt_init},
@@ -72,6 +75,7 @@ const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
     {"wdt-disable", "wdt-disable", cmd_wdt_disable},
     {"timer-start", "timer-start", cmd_timer_start},
 };                                                                                   
+#endif
 
 int bl_wdt_cli_init(void)
 {

@@ -18,13 +18,13 @@ COMPONENT_ADD_INCLUDEDIRS += src/include/compat/stdc
 endif
 
 ## not be exported to project level
-COMPONENT_PRIV_INCLUDEDIRS :=
+COMPONENT_PRIV_INCLUDEDIRS := src/apps/altcp_tls
 
 ## This component's src
 #COMPONENT_SRCS :=
 #COMPONENT_OBJS := $(patsubst %.c,%.o, $(COMPONENT_SRCS))
 
-COMPONENT_SRCDIRS := src/api src/core src/core/ipv4 src/netif lwip-port/FreeRTOS lwip-port src/apps/altcp_tls
+COMPONENT_SRCDIRS := src/api src/core src/core/ipv4 src/netif lwip-port/FreeRTOS lwip-port src/apps/altcp_tls src/apps/mqtt
 
 ifeq ($(CONFIG_COMPONENT_BUGKILLER_ENABLE),1)
 COMPONENT_ADD_INCLUDEDIRS += bugkiller/include

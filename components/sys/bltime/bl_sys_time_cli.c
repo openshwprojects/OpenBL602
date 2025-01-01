@@ -30,8 +30,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <bl_sys_time.h>
-
+#ifdef CONFIG_CLI_CMD_ENABLE
 #include <cli.h>
+#endif
 #include <utils_time.h>
 #include <blog.h>
 
@@ -83,12 +84,13 @@ static void cmd_sys_time_date(char *buf, int len, int argc, char **argv)
     );
 }
 
+#ifdef CONFIG_CLI_CMD_ENABLE
 // STATIC_CLI_CMD_ATTRIBUTE makes this(these) command(s) static
 const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
         { "bl_sys_time_now", "sys time now", cmd_sys_time_now},
         { "bl_sys_time_date", "sys time now", cmd_sys_time_date},
 };                                                                                   
-
+#endif
 int bl_sys_time_cli_init(void)
 {
     // static command(s) do NOT need to call aos_cli_register_command(s) to register.

@@ -231,7 +231,7 @@ int bl606a0_wifi_init(wifi_conf_t *conf)
             mac[4],
             mac[5]
     );
-    snprintf(wifiMgmr.hostname, MAX_HOSTNAME_LEN_CHECK, "Bouffalolab_%s-%02x%02x%02x", BL_CHIP_NAME, mac[3], mac[4], mac[5]);
+    snprintf(wifiMgmr.hostname, MAX_HOSTNAME_LEN_CHECK, "Open%s_%02x%02x%02x%02x", BL_CHIP_NAME, mac[2], mac[3], mac[4], mac[5]);
     wifiMgmr.hostname[MAX_HOSTNAME_LEN_CHECK - 1] = '\0';
     bl_os_printf("     hostname: %s\r\n", wifiMgmr.hostname);
     bl_msg_update_channel_cfg(conf->country_code);

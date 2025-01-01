@@ -31,7 +31,9 @@
 #include <task.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef CONFIG_CLI_CMD_ENABLE
 #include <cli.h>
+#endif
 #include <aos/kernel.h>
 
 #include <lwip/sockets.h>
@@ -198,10 +200,12 @@ void tcpclient_cmd(char *buf, int len, int argc, char **argv)
     aos_task_new(names, tcpc_entry, host, 2048);
 }
 
+#ifdef CONFIG_CLI_CMD_ENABLE
 // STATIC_CLI_CMD_ATTRIBUTE makes this(these) command(s) static
 const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
         { "tcpc", "create a tcpc for in a new task", tcpclient_cmd},
-};                                                                                   
+};   
+#endif                                                                                
 
 int network_netutils_tcpclinet_cli_register()
 {
