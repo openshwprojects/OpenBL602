@@ -3,6 +3,7 @@
 #
 # (Uses default behaviour of compiling all source files in directory, adding 'include' to include path.)
 
+COMPONENT_PRIV_INCLUDEDIRS := $(LIB_DIR) shared
 include $(BL60X_SDK_PATH)/components/network/ble/ble_common.mk
 
 ifeq ($(CONFIG_ENABLE_PSM_RAM),1)

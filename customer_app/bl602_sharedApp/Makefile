@@ -20,12 +20,12 @@ $(info ****** Please SET BL60X_SDK_PATH ******)
 $(info ****** Trying SDK PATH [$(BL60X_SDK_PATH)])
 endif
 
-COMPONENTS_NETWORK := sntp dns_server
-COMPONENTS_BLSYS   := bltime blfdt blmtd blota bloop loopadc looprt loopset
+COMPONENTS_NETWORK := dns_server
+COMPONENTS_BLSYS   := bltime blfdt blmtd bloop looprt loopset
 COMPONENTS_VFS     := romfs
 
-INCLUDE_COMPONENTS += freertos_riscv_ram bl602 bl602_std bl602_wifi blcrypto_suite bl602_wifidrv hal_drv lwip lwip_dhcpd mbedtls vfs yloop utils cli httpc netutils blog blog_testc
-INCLUDE_COMPONENTS += easyflash4
+INCLUDE_COMPONENTS += freertos_riscv_ram bl602 bl602_std newlibc wifi blcrypto_suite wifi_manager wpa_supplicant bl_os_adapter wifi_hosal hosal lwip_altcp_tls_mbedtls lwip lwip_dhcpd mbedtls_lts vfs yloop utils blog
+INCLUDE_COMPONENTS += easyflash4 coredump rfparam_adapter_tmp shared
 INCLUDE_COMPONENTS += $(COMPONENTS_NETWORK)
 INCLUDE_COMPONENTS += $(COMPONENTS_BLSYS)
 INCLUDE_COMPONENTS += $(COMPONENTS_VFS)
