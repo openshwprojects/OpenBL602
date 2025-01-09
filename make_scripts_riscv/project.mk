@@ -385,6 +385,7 @@ CXXFLAGS := $(strip \
 	-fno-rtti -fno-exceptions \
 	-save-temps=obj \
 	)
+CXXFLAGS += -DPLATFORM_BL602=1
 
 export CFLAGS CPPFLAGS CXXFLAGS ASMFLAGS
 
