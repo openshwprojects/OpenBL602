@@ -43,10 +43,8 @@
 //#ifndef  PTS_GAP_SLAVER_CONFIG_INDICATE_CHARC
 //#define  PTS_GAP_SLAVER_CONFIG_INDICATE_CHARC	
 //#endif
-
-#endif
-
 #define CONFIG_BT_GATT_READ_MULTIPLE 1
+#endif
 
 /**
  * CONFIG_BT_HCI_RX_STACK_SIZE: rx thread stack size
@@ -55,11 +53,29 @@
 #define CONFIG_BT_HCI_RX_STACK_SIZE  512
 #endif
 
+/**
+ * BL_BLE_CO_THREAD: combine tx rx thread
+ */
+#define BFLB_BT_CO_THREAD 1
+
+#if (BFLB_BT_CO_THREAD)
+#define CONFIG_BT_CO_TASK_PRIO (configMAX_PRIORITIES - 3)
+#if defined(CONFIG_BT_MESH)
+#define CONFIG_BT_CO_STACK_SIZE  3072//2048//1536//1024
+#else
+#define CONFIG_BT_CO_STACK_SIZE  2048//2048//1536//1024
+#endif
+#endif
+
 #ifndef CONFIG_BT_RX_STACK_SIZE
 #if defined(CONFIG_BT_MESH)
 #define CONFIG_BT_RX_STACK_SIZE  3072//2048//1536//1024
 #else
+#if !defined(CONFIG_BT_CONN)
+#define CONFIG_BT_RX_STACK_SIZE  1024
+#else
 #define CONFIG_BT_RX_STACK_SIZE  2048//1536//1024
+#endif
 #endif
 #endif
 
@@ -77,7 +93,11 @@
  */
 
 #ifndef CONFIG_BT_HCI_TX_STACK_SIZE
+#if !defined(CONFIG_BT_CONN)
+#define CONFIG_BT_HCI_TX_STACK_SIZE  1024
+#else
 #define CONFIG_BT_HCI_TX_STACK_SIZE 1536//1024//200
+#endif
 #endif
 
 /**
@@ -89,14 +109,6 @@
 
 #ifndef CONFIG_BT_CTLR_RX_PRIO
 #define CONFIG_BT_CTLR_RX_PRIO (configMAX_PRIORITIES - 4)
-#endif
-
-
-/**
- * BL_BLE_CO_THREAD: combine tx rx thread
- */
- #ifndef BFLB_BLE_CO_THREAD
- #define BFLB_BLE_CO_THREAD 0
 #endif
 
 /**
@@ -292,8 +304,8 @@
 * range 1 to 65535,seconds
 */
 #ifndef CONFIG_BT_RPA_TIMEOUT
-#if defined(CONFIG_BT_STACK_PTS)
-#define CONFIG_BT_RPA_TIMEOUT 900
+#if defined(CONFIG_AUTO_PTS)
+#define CONFIG_BT_RPA_TIMEOUT 60
 #else
 #define CONFIG_BT_RPA_TIMEOUT 900
 #endif
@@ -352,15 +364,20 @@
 *  to 248 bytes long (excluding NULL termination). Can be empty string
 */
 #ifndef CONFIG_BT_DEVICE_NAME
+#if defined(CONFIG_AUTO_PTS)
+#define CONFIG_BT_DEVICE_NAME "AUTO_PTS_TEST0123456789012345"
+#else
 #if defined(BL602)
 #define CONFIG_BT_DEVICE_NAME "BL602-BLE-DEV"
 #elif defined(BL702)
 #define CONFIG_BT_DEVICE_NAME "BL702-BLE-DEV"
+#elif defined(BL702L)
+#define CONFIG_BT_DEVICE_NAME "BL702L-BLE-DEV"
 #else
-#define CONFIG_BT_DEVICE_NAME "BL606P-BTBLE"
+#define CONFIG_BT_DEVICE_NAME "BTBLE-DEV"
 #endif
 #endif
-
+#endif
 /**
 *  CONFIG_BT_CONTROLLER_NAME:Bluetooth controller name.
 */
@@ -376,7 +393,7 @@
 *  CONFIG_BT_MAX_SCO_CONN:Maximum number of simultaneous SCO connections.
 */
 #ifndef CONFIG_BT_MAX_SCO_CONN
-#define CONFIG_BT_MAX_SCO_CONN 0
+#define CONFIG_BT_MAX_SCO_CONN CONFIG_MAX_SCO
 #endif
 
 /**
@@ -386,8 +403,12 @@
 #ifndef CONFIG_BT_MESH
 #define CONFIG_BT_WORK_QUEUE_STACK_SIZE 1536//1280//512
 #else
+#if !defined(CONFIG_BT_CONN)
+#define CONFIG_BT_WORK_QUEUE_STACK_SIZE 1024
+#else
 #define CONFIG_BT_WORK_QUEUE_STACK_SIZE 2048
 #endif /* CONFIG_BT_MESH */
+#endif
 #endif
 
 /**
@@ -545,6 +566,10 @@
 #define CONFIG_BT_PERIPHERAL_PREF_TIMEOUT 400
 #endif
 
+#ifndef CONFIG_BT_PHY_UPDATE
+#define CONFIG_BT_PHY_UPDATE 1
+#endif
+
 #if defined(CONFIG_BT_BREDR)
 #define CONFIG_BT_PAGE_TIMEOUT 0x2000 //5.12s
 #define CONFIG_BT_L2CAP_RX_MTU 672
@@ -553,10 +578,15 @@
 #define CONFIG_BT_RFCOMM_TX_STACK_SIZE  1024
 #endif
 #ifndef CONFIG_BT_RFCOMM_TX_PRIO
-#define CONFIG_BT_RFCOMM_TX_PRIO (configMAX_PRIORITIES - 3)
+#define CONFIG_BT_RFCOMM_TX_PRIO (configMAX_PRIORITIES - 5)
 #endif
 
 #define PCM_PRINTF 0
+#endif
+
+#if defined(CONFIG_BT_AUDIO)
+#define CONFIG_BT_MAX_ISO_CONN 8  //range 1 to 64
+
 #endif
 
 /*******************************Bouffalo Lab Modification******************************/
@@ -566,6 +596,23 @@
 #define BFLB_DISABLE_BT
 #define BFLB_FIXED_IRK 0
 #define BFLB_DYNAMIC_ALLOC_MEM
+#define BFLB_BT_LINK_KEYS_STORE
+#if defined(CFG_BLE_PDS) && defined(BL702) && defined(BFLB_BLE) && defined(BFLB_DYNAMIC_ALLOC_MEM)
+#define BFLB_STATIC_ALLOC_MEM   1
+#else
+#define BFLB_STATIC_ALLOC_MEM   0
+#endif
+#define CONFIG_BT_SCAN_WITH_IDENTITY 1
+
+#if defined(CONFIG_AUTO_PTS)
+#define CONFIG_BT_L2CAP_DYNAMIC_CHANNEL
+#define CONFIG_BT_DEVICE_NAME_GATT_WRITABLE 1
+#define CONFIG_BT_GATT_SERVICE_CHANGED 1
+#define CONFIG_BT_GATT_CACHING 1
+#define CONFIG_BT_SCAN_WITH_IDENTITY 1
+//#define CONFIG_BT_ADV_WITH_PUBLIC_ADDR 1
+#define CONFIG_BT_ATT_PREPARE_COUNT 64
+#endif
 #endif //BFLB_BLE
 
 /*******************************Bouffalo Lab Patch******************************/
@@ -578,20 +625,42 @@ happens, which cause memory leak issue.*/
 #define BFLB_BLE_PATCH_FREE_ALLOCATED_BUFFER_IN_OS
 /*To avoid duplicated pubkey callback.*/
 #define BFLB_BLE_PATCH_AVOID_DUPLI_PUBKEY_CB
+#if defined(CONFIG_BT_GATT_DYNAMIC_DB)
+#define BFLB_BLE_DYNAMIC_SERVICE
+#endif
 /*The flag @conn_ref is not clean up after disconnect*/
-#define BFLB_BLE_PATCH_CLEAN_UP_CONNECT_REF 
+//#define BFLB_BLE_PATCH_CLEAN_UP_CONNECT_REF
+#if !defined(CONFIG_AUTO_PTS)
 /*To avoid sevice changed indication sent at the very beginning, without any new service added.*/
 #define BFLB_BLE_PATCH_SET_SCRANGE_CHAGD_ONLY_IN_CONNECTED_STATE
+#endif
 #ifdef CONFIG_BT_SETTINGS
 /*Semaphore is used during flash operation. Make sure that freertos has already run up when it
   intends to write information to flash.*/
 #define BFLB_BLE_PATCH_SETTINGS_LOAD
 #endif
+#define BFLB_BLE_SMP_LOCAL_AUTH
+#define BFLB_BLE_MTU_CHANGE_CB
 #if defined(CFG_BT_RESET)
 #define BFLB_HOST_ASSISTANT
 #endif
-#if defined(__cplusplus)
-}
+
+#define BFLB_RELEASE_CMD_SEM_IF_CONN_DISC
+/*Fix the issue when local auth_req is 0(no boinding), 
+BT_SMP_DIST_ENC_KEY bit is not cleared while remote ENC_KEY is received.*/
+#define BFLB_BLE_PATCH_CLEAR_REMOTE_KEY_BIT
+
+#if defined(CONFIG_BT_CENTRAL) || defined(CONFIG_BT_OBSERVER)
+#if defined(BL602) || defined(BL702)
+#define BFLB_BLE_NOTIFY_ADV_DISCARDED
+#endif
 #endif
 
+#if defined(CONFIG_BT_CENTRAL)
+#define BFLB_BLE_NOTIFY_ALL
+#define BFLB_BLE_DISCOVER_ONGOING
+#endif
+
+#define BR_EDR_PTS_TEST 0
+#define BFLB_BLE_ENABLE_TEST_PSM 0
 #endif /* BLE_CONFIG_H */

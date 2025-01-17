@@ -79,6 +79,9 @@ struct bt_l2cap_conn_rsp {
 #define BT_L2CAP_CONF_SUCCESS		0x0000
 #define BT_L2CAP_CONF_UNACCEPT		0x0001
 #define BT_L2CAP_CONF_REJECT		0x0002
+#define BT_L2CAP_CONF_UNKNOWN_OPTIONS 0x0003
+#define BT_L2CAP_CONF_PENDING       0x0004
+#define BT_L2CAP_CONF_FLOW_SPEC_REJECTED 0x0005
 
 #define BT_L2CAP_CONF_REQ		0x04
 struct bt_l2cap_conf_req {
@@ -118,6 +121,9 @@ struct bt_l2cap_disconn_rsp {
 	u16_t dcid;
 	u16_t scid;
 } __packed;
+
+#define BT_L2CAP_ECHO_REQ		0x08
+#define BT_L2CAP_ECHO_RSP		0x09
 
 #define BT_L2CAP_INFO_FEAT_MASK		0x0002
 #define BT_L2CAP_INFO_FIXED_CHAN	0x0003

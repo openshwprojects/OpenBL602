@@ -10,7 +10,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdbool.h>
-#include <atomic.h>
+#include <common/include/atomic.h>
 #include <util.h>
 #include <byteorder.h>
 
@@ -1523,11 +1523,9 @@ void bt_mesh_net_start(void)
 
 void bt_mesh_net_init(void)
 {
-    #if defined(BFLB_DYNAMIC_ALLOC_MEM)
-    net_buf_init(&loopback_buf_pool, CONFIG_BT_MESH_LOOPBACK_BUFS, LOOPBACK_MAX_PDU_LEN, NULL);
-    #endif
-	/* Added by bouffalo lab, init poll.free */
-	k_lifo_init(&loopback_buf_pool.free, CONFIG_BT_MESH_LOOPBACK_BUFS);
+#if defined(BFLB_DYNAMIC_ALLOC_MEM)
+	net_buf_init(&loopback_buf_pool, CONFIG_BT_MESH_LOOPBACK_BUFS, LOOPBACK_MAX_PDU_LEN, NULL);
+#endif
 
 	k_delayed_work_init(&bt_mesh.ivu_timer, ivu_refresh);
 

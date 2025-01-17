@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Bouffalolab.
+ * Copyright (c) 2016-2022 Bouffalolab.
  *
  * This file is part of
  *     *** Bouffalolab Software Dev Kit ***
@@ -29,8 +29,9 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef CONFIG_CLI_CMD_ENABLE
 #include <cli.h>
-
+#endif
 #include <loopset.h>
 
 void cmd_loopset_led_trigger(char *buf, int len, int argc, char **argv)
@@ -51,12 +52,12 @@ void cmd_loopset_led_trigger(char *buf, int len, int argc, char **argv)
     }
     loopset_led_trigger(pin, 100);
 }
-
+#ifdef CONFIG_CLI_CMD_ENABLE
 // STATIC_CLI_CMD_ATTRIBUTE makes this(these) command(s) static
 const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
     { "loopset-led-trigger", "Trigger LED on PIN", cmd_loopset_led_trigger},
 };
-
+#endif
 int loopset_led_cli_init(void)
 {
     // static command(s) do NOT need to call aos_cli_register_command(s) to register.

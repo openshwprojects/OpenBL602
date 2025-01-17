@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <FreeRTOS.h>
 
-#include <vfs.h>
 #include <aos/kernel.h>
 #include <aos/yloop.h>
 #include <event_device.h>

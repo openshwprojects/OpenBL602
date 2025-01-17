@@ -8,7 +8,7 @@
 
 #include <zephyr.h>
 #include <string.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <atomic.h>
@@ -18,11 +18,11 @@
 #include <settings.h>
 
 #if defined(CONFIG_BT_GATT_CACHING)
-#include <tinycrypt/constants.h>
-#include <tinycrypt/utils.h>
-#include <tinycrypt/aes.h>
-#include <tinycrypt/cmac_mode.h>
-#include <tinycrypt/ccm_mode.h>
+#include <constants.h>
+#include <utils.h>
+#include <aes.h>
+#include <cmac_mode.h>
+#include <ccm_mode.h>
 #endif /* CONFIG_BT_GATT_CACHING */
 #include <hci_host.h>
 #include <bluetooth.h>
@@ -30,7 +30,7 @@
 #include <gatt.h>
 #include <hci_driver.h>
 #if defined(BFLB_BLE)
-#include "config.h"
+#include "port/include/config.h"
 #include <util.h>
 #endif
 
@@ -38,7 +38,13 @@
 extern u8_t event_flag;
 #endif
 
+#ifdef BT_DBG_ENABLED
+#undef BT_DBG_ENABLED
 #define BT_DBG_ENABLED IS_ENABLED(CONFIG_BT_DEBUG_GATT)
+#else
+#define BT_DBG_ENABLED IS_ENABLED(CONFIG_BT_DEBUG_GATT)
+#endif
+
 #define LOG_MODULE_NAME bt_gatt
 #include "log.h"
 
@@ -66,6 +72,13 @@ struct ccc_store {
 
 #if defined(CONFIG_BT_GATT_CLIENT)
 static sys_slist_t subscriptions;
+#if defined(BFLB_BLE_NOTIFY_ALL)
+bt_notification_all_cb_t gatt_notify_all_cb;
+#endif
+#if defined(BFLB_BLE_DISCOVER_ONGOING)
+uint8_t discover_ongoing = BT_GATT_ITER_STOP;
+extern int bt_gatt_discover_continue(struct bt_conn *conn, struct bt_gatt_discover_params *params);
+#endif
 #endif /* CONFIG_BT_GATT_CLIENT */
 
 static const u16_t gap_appearance = CONFIG_BT_DEVICE_APPEARANCE;
@@ -75,6 +88,10 @@ static sys_slist_t db;
 #endif /* CONFIG_BT_GATT_DYNAMIC_DB */
 
 static atomic_t init;
+
+#if defined(BFLB_BLE_MTU_CHANGE_CB)
+bt_gatt_mtu_changed_cb_t gatt_mtu_changed_cb;
+#endif
 
 static ssize_t read_name(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 			 void *buf, u16_t len, u16_t offset)
@@ -175,7 +192,7 @@ BT_GATT_SERVICE_DEFINE(_2_gap_svc,
 	/* Require pairing for writes to device name */
 	BT_GATT_CHARACTERISTIC(BT_UUID_GAP_DEVICE_NAME,
 			       BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
-			       BT_GATT_PERM_READ | BT_GATT_PERM_WRITE_ENCRYPT,
+			       BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
 			       read_name, write_name, bt_dev.name),
 #else
 	BT_GATT_CHARACTERISTIC(BT_UUID_GAP_DEVICE_NAME, BT_GATT_CHRC_READ,
@@ -639,7 +656,9 @@ static void db_hash_gen(bool store)
 	 */
 	sys_mem_swap(db_hash, sizeof(db_hash));
 
+    #if !defined(BFLB_BLE)
 	BT_HEXDUMP_DBG(db_hash, sizeof(db_hash), "Hash: ");
+    #endif
 
 	if (IS_ENABLED(CONFIG_BT_SETTINGS) && store) {
 		db_hash_store();
@@ -755,7 +774,7 @@ static u8_t found_attr(const struct bt_gatt_attr *attr, void *user_data)
 	return BT_GATT_ITER_STOP;
 }
 
-static const struct bt_gatt_attr *find_attr(uint16_t handle)
+const struct bt_gatt_attr *find_attr(uint16_t handle)
 {
 	const struct bt_gatt_attr *attr = NULL;
 
@@ -923,18 +942,16 @@ int service_change_test(struct bt_gatt_indicate_params *params,const struct bt_c
 		#else
 		params->attr = &_1_gatt_svc.attrs[2];
 		#endif
-	}	
+	}
 	sc_range[0] = 0x000e;
 	sc_range[1] = 0x001e;
 	
 	params->data = &sc_range[0];
 	params->len = sizeof(sc_range);
-		
-	if (bt_gatt_indicate(con, params)) {
-		/* No connections to indicate */
-		return;
-	}
+
+	return bt_gatt_indicate(con, params);
 }
+
 #endif
 
 #if defined(CONFIG_BT_SETTINGS_CCC_STORE_ON_WRITE)
@@ -1068,7 +1085,12 @@ static void sc_indicate(u16_t start, u16_t end)
     #endif
 
 	if (!update_range(&gatt_sc.start, &gatt_sc.end, start, end)) {
-		return;
+#if defined (BFLB_BLE_PATCH_SET_SCRANGE_CHAGD_ONLY_IN_CONNECTED_STATE)
+        if(conn){
+            bt_conn_unref(conn);
+        }
+#endif
+        return;
 	}
 
 submit:
@@ -1319,6 +1341,9 @@ uint16_t bt_gatt_attr_value_handle(const struct bt_gatt_attr *attr)
 			/* Fall back to Zephyr value handle policy */
 			handle = (attr->handle ? : find_static_attr(attr)) + 1U;
 		}
+        #else
+        if(handle == 0)
+            handle = attr->handle+1;
         #endif
 	}
 
@@ -1402,6 +1427,7 @@ static void foreach_attr_type_dyndb(u16_t start_handle, u16_t end_handle,
 {
 #if defined(CONFIG_BT_GATT_DYNAMIC_DB)
 	int i;
+
 	struct bt_gatt_service *svc;
 
 	SYS_SLIST_FOR_EACH_CONTAINER(&db, svc, node) {
@@ -1904,6 +1930,8 @@ int bt_gatt_notify_cb(struct bt_conn *conn,
 	}
     #if !defined(BFLB_BLE_DISABLE_STATIC_ATTR)
 	handle = attr->handle ? : find_static_attr(attr);
+    #else
+    handle = attr->handle;
     #endif
 	if (!handle) {
 		return -ENOENT;
@@ -1968,6 +1996,8 @@ int bt_gatt_indicate(struct bt_conn *conn,
 	}
     #if !defined(BFLB_BLE_DISABLE_STATIC_ATTR)
 	handle = attr->handle ? : find_static_attr(attr);
+    #else
+    handle = attr->handle;
     #endif
 	if (!handle) {
 		return -ENOENT;
@@ -2300,13 +2330,23 @@ bool bt_gatt_is_subscribed(struct bt_conn *conn,
 }
 
 #if defined(CONFIG_BT_GATT_CLIENT)
+#if defined(BFLB_BLE_NOTIFY_ALL)
+void bt_gatt_register_notification_callback(bt_notification_all_cb_t cb)
+{
+    gatt_notify_all_cb = cb;
+}
+#endif
 void bt_gatt_notification(struct bt_conn *conn, u16_t handle,
 			  const void *data, u16_t length)
 {
 	struct bt_gatt_subscribe_params *params, *tmp;
 
 	BT_DBG("handle 0x%04x length %u", handle, length);
-
+    #if defined(BFLB_BLE_NOTIFY_ALL)
+    if(gatt_notify_all_cb){
+        gatt_notify_all_cb(conn,handle,data,length);
+    }
+    #endif
 	SYS_SLIST_FOR_EACH_CONTAINER_SAFE(&subscriptions, params, tmp, node) {
 		if (bt_conn_addr_le_cmp(conn, &params->_peer) ||
 		    handle != params->value_handle) {
@@ -2458,12 +2498,19 @@ static void gatt_discover_next(struct bt_conn *conn, u16_t last_handle,
 
 discover:
 	/* Discover next range */
+#if defined(BFLB_BLE_DISCOVER_ONGOING)
+	if (!bt_gatt_discover_continue(conn, params)) {
+#else
 	if (!bt_gatt_discover(conn, params)) {
+#endif
 		return;
 	}
 
 done:
 	params->func(conn, NULL, params);
+#if defined(BFLB_BLE_DISCOVER_ONGOING)
+	discover_ongoing = BT_GATT_ITER_STOP;
+#endif
 }
 
 static void gatt_find_type_rsp(struct bt_conn *conn, u8_t err,
@@ -2506,6 +2553,9 @@ static void gatt_find_type_rsp(struct bt_conn *conn, u8_t err,
 		attr.user_data = &value;
 
 		if (params->func(conn, &attr, params) == BT_GATT_ITER_STOP) {
+		#if defined(BFLB_BLE_DISCOVER_ONGOING)
+			discover_ongoing = BT_GATT_ITER_STOP;
+		#endif
 			return;
 		}
 	}
@@ -2520,6 +2570,9 @@ static void gatt_find_type_rsp(struct bt_conn *conn, u8_t err,
 	return;
 done:
 	params->func(conn, NULL, params);
+#if defined(BFLB_BLE_DISCOVER_ONGOING)
+	discover_ongoing = BT_GATT_ITER_STOP;
+#endif
 }
 
 static int gatt_find_type(struct bt_conn *conn,
@@ -2825,6 +2878,9 @@ static void gatt_read_type_rsp(struct bt_conn *conn, u8_t err,
 
 	if (err) {
 		params->func(conn, NULL, params);
+	#if defined(BFLB_BLE_DISCOVER_ONGOING)
+		discover_ongoing = BT_GATT_ITER_STOP;
+	#endif
 		return;
 	}
 
@@ -2835,6 +2891,9 @@ static void gatt_read_type_rsp(struct bt_conn *conn, u8_t err,
 	}
 
 	if (!handle) {
+	#if defined(BFLB_BLE_DISCOVER_ONGOING)
+		discover_ongoing = BT_GATT_ITER_STOP;
+	#endif
 		return;
 	}
 
@@ -2961,11 +3020,17 @@ static void gatt_read_group_rsp(struct bt_conn *conn, u8_t err,
 
 	if (err) {
 		params->func(conn, NULL, params);
+	#if defined(BFLB_BLE_DISCOVER_ONGOING)
+		discover_ongoing = BT_GATT_ITER_STOP;
+	#endif
 		return;
 	}
 
 	handle = parse_service(conn, pdu, params, length);
 	if (!handle) {
+	#if defined(BFLB_BLE_DISCOVER_ONGOING)
+		discover_ongoing = BT_GATT_ITER_STOP;
+	#endif
 		return;
 	}
 
@@ -3100,6 +3165,9 @@ static void gatt_find_info_rsp(struct bt_conn *conn, u8_t err,
 		attr->handle = handle;
 
 		if (params->func(conn, attr, params) == BT_GATT_ITER_STOP) {
+		#if defined(BFLB_BLE_DISCOVER_ONGOING)
+			discover_ongoing = BT_GATT_ITER_STOP;
+		#endif
 			return;
 		}
 	}
@@ -3110,6 +3178,9 @@ static void gatt_find_info_rsp(struct bt_conn *conn, u8_t err,
 
 done:
 	params->func(conn, NULL, params);
+#if defined(BFLB_BLE_DISCOVER_ONGOING)
+	discover_ongoing = BT_GATT_ITER_STOP;
+#endif
 }
 
 static int gatt_find_info(struct bt_conn *conn,
@@ -3147,6 +3218,18 @@ int bt_gatt_discover(struct bt_conn *conn,
 		return -ENOTCONN;
 	}
 
+#if defined(BFLB_BLE_DISCOVER_ONGOING)
+	if (discover_ongoing != BT_GATT_ITER_STOP) {
+		return -EINPROGRESS;
+	}
+	discover_ongoing = BT_GATT_ITER_CONTINUE;
+
+	return bt_gatt_discover_continue(conn, params);
+}
+int bt_gatt_discover_continue(struct bt_conn *conn,
+		     struct bt_gatt_discover_params *params)
+{
+#endif
 	switch (params->type) {
 	case BT_GATT_DISCOVER_PRIMARY:
 	case BT_GATT_DISCOVER_SECONDARY:
@@ -3611,6 +3694,7 @@ static void gatt_write_ccc_rsp(struct bt_conn *conn, u8_t err,
 	/* if write to CCC failed we remove subscription and notify app */
 	if (err) {
 		sys_snode_t *node, *tmp, *prev = NULL;
+                   UNUSED(prev);
 
 		SYS_SLIST_FOR_EACH_NODE_SAFE(&subscriptions, node, tmp) {
 			if (node == &params->node) {
@@ -4155,7 +4239,11 @@ static int bt_gatt_store_cf(struct bt_conn *conn)
 				       &conn->le.dst, NULL);
 	}
 
+	#if defined(BFLB_BLE)
+	err = settings_save_one(key, (u8_t*)str, len);
+	#else
 	err = settings_save_one(key, str, len);
+	#endif
 	if (err) {
 		BT_ERR("Failed to store Client Features (err %d)", err);
 		return err;
@@ -4194,6 +4282,19 @@ void bt_gatt_disconnected(struct bt_conn *conn)
 	remove_cf_cfg(conn);
 #endif
 }
+
+#if defined(BFLB_BLE_MTU_CHANGE_CB)
+void bt_gatt_mtu_changed(struct bt_conn *conn, u16_t mtu)
+{
+    if(gatt_mtu_changed_cb)
+        gatt_mtu_changed_cb(conn, (int)mtu);
+}
+
+void bt_gatt_register_mtu_callback(bt_gatt_mtu_changed_cb_t cb)
+{
+    gatt_mtu_changed_cb = cb;
+}
+#endif
 
 #if defined(CONFIG_BT_SETTINGS)
 
@@ -4650,3 +4751,556 @@ SETTINGS_STATIC_HANDLER_DEFINE(bt_hash, "bt/hash", NULL, db_hash_set,
 			       db_hash_commit, NULL);
 #endif /*CONFIG_BT_GATT_CACHING */
 #endif /* CONFIG_BT_SETTINGS */
+
+#if defined(CONFIG_BT_GATT_DYNAMIC_DB)
+uint16_t bt_gatt_get_last_handle(void)
+{
+    struct bt_gatt_service *last;
+    u16_t handle, last_handle;
+
+    if (sys_slist_is_empty(&db)) {
+        handle = last_static_handle;
+        last_handle = handle;
+	    goto last;
+    }
+
+    last = SYS_SLIST_PEEK_TAIL_CONTAINER(&db, last, node);
+    handle = last->attrs[last->attr_count - 1].handle;
+    last_handle = handle;
+last:
+    return last_handle;
+}
+#endif
+#if defined(BFLB_BLE_DYNAMIC_SERVICE)
+#if defined(CONFIG_BT_PERIPHERAL)
+
+static sys_slist_t custom_services_db;
+static sys_slist_t custom_desp_db;
+static uint16_t service_idx = 0;
+static uint16_t attr_idx = 0;
+static struct bt_uuid *primary = BT_UUID_GATT_PRIMARY;
+static struct bt_uuid *include = BT_UUID_GATT_INCLUDE;
+static struct bt_uuid *chrc = BT_UUID_GATT_CHRC;
+
+
+int bt_gatts_add_serv_attr(const struct bt_uuid *uuid, uint8_t is_primary,uint32_t number_attrs)
+{
+    const struct bt_uuid *srv_uuid = NULL;
+    struct bt_gatt_attr attr_info;
+    struct bt_gatt_service *serv_info = NULL;
+    struct customer_svc_list *list;
+
+    srv_uuid = uuid;
+    if(!srv_uuid){
+        return -ENOBUFS;
+    }
+
+    if(!serv_info){
+        serv_info = (struct bt_gatt_service *)k_malloc(sizeof(struct bt_gatt_service));
+        if(!serv_info){
+            return -ENOBUFS;
+        }
+    }
+
+    memset(serv_info,0,sizeof(struct bt_gatt_service));
+
+    if(!serv_info->attrs){
+        serv_info->attrs = (struct bt_gatt_attr *)k_malloc(sizeof(struct bt_gatt_attr) * number_attrs);
+        if(!serv_info->attrs){
+            return -ENOBUFS;
+        }
+    }
+
+    memset(serv_info->attrs,0,sizeof(struct bt_gatt_attr)*number_attrs);
+    serv_info->attr_count = number_attrs;
+
+    if(is_primary){
+        attr_info.uuid = primary;
+    }else{
+        attr_info.uuid = include;
+    }
+
+    attr_info.read = bt_gatt_attr_read_service;
+    attr_info.write = NULL;
+    attr_info.user_data = (void *)srv_uuid;
+    attr_info.handle = 0;
+    attr_info.perm = BT_GATT_PERM_READ;
+
+    memcpy(serv_info->attrs,&attr_info,sizeof(struct bt_gatt_attr));
+    attr_idx++;
+
+    list = (struct customer_svc_list *)k_malloc(sizeof(struct customer_svc_list));
+    list->svc = serv_info;
+
+    sys_slist_append(&custom_services_db, &list->node);
+    return 0;
+}
+
+int bt_gatts_add_char(const struct bt_gatt_attr *char_attr,uint32_t val_prop)
+{
+    struct bt_gatt_chrc char_dec_val;
+    struct bt_gatt_attr char_dec;
+    const struct bt_uuid *char_uuid = NULL;
+    struct bt_gatt_attr char_val;
+    struct bt_gatt_service *last;
+    struct customer_svc_list *last_list;
+
+    last_list = SYS_SLIST_PEEK_TAIL_CONTAINER(&custom_services_db, last_list, node);
+    if(!last_list){
+        BT_ERR("Not found svc list");
+        return -ENOBUFS;
+    }
+
+    last = last_list->svc;
+    if(!last){
+        BT_ERR("Not found service");
+        return -ENOBUFS;
+    }
+
+    if(!char_attr){
+        BT_ERR("Attr is NULL");
+        return -EINVAL;
+    }
+
+    char_uuid = char_attr->uuid;
+    memset(&char_dec, 0, sizeof(struct bt_gatt_attr));
+    char_dec.uuid = chrc;
+    char_dec.read = bt_gatt_attr_read_chrc;
+    char_dec.write = NULL;
+    char_dec_val.uuid = char_uuid;
+    char_dec_val.value_handle = 0;
+    char_dec_val.properties = val_prop;
+    char_dec.user_data = (struct bt_gatt_chrc *)k_malloc(sizeof(struct bt_gatt_chrc));
+
+    if(!char_dec.user_data){
+        k_free((void *)char_uuid);
+        return -ENOBUFS;
+    }
+    memcpy(char_dec.user_data, &char_dec_val, sizeof(struct bt_gatt_chrc));
+    char_dec.handle = 0;
+    char_dec.perm = BT_GATT_PERM_READ;
+
+    memcpy(last->attrs+attr_idx,&char_dec,sizeof(struct bt_gatt_attr));
+    attr_idx++;
+
+    memset(&char_val, 0, sizeof(struct bt_gatt_attr));
+    char_val.uuid = char_uuid;
+    char_val.read = char_attr->read;
+    char_val.write = char_attr->write;
+    char_val.user_data = char_attr->user_data;
+    char_val.handle = 0;
+    char_val.perm = char_attr->perm;
+
+    memcpy(last->attrs+attr_idx,&char_val,sizeof(struct bt_gatt_attr));
+    attr_idx++;
+
+    return 0;
+}
+
+int bt_gatts_add_desc(const struct bt_gatt_attr *desp_attr)
+{
+    const struct bt_uuid *desc_uuid = NULL;
+    struct _bt_gatt_ccc *ccc = NULL;
+    struct bt_gatt_attr desc_attr;
+    struct bt_gatt_service *last;
+    struct add_gatts_attr *d;
+    struct customer_svc_list *list;
+
+    list = SYS_SLIST_PEEK_TAIL_CONTAINER(&custom_services_db, list, node);
+    if(!list){
+        BT_ERR("Not found service list");
+        return -ENOBUFS;
+    }
+    last = list->svc;
+    if(!last){
+        BT_ERR("Not found service");
+        return -ENOBUFS;
+    }
+
+    if(!desp_attr){
+        return -EINVAL;
+    }
+
+    desc_uuid = desp_attr->uuid;
+    if(!desc_uuid)
+        return -ENOBUFS;
+
+    desc_attr.uuid = desc_uuid;
+    if(!bt_uuid_cmp(desc_uuid, BT_UUID_GATT_CCC)){
+        ccc = (struct _bt_gatt_ccc *)k_malloc(sizeof(struct _bt_gatt_ccc));
+        if(!ccc){
+            k_free((void *)desc_uuid);
+            return -ENOBUFS;
+        }
+        memset(ccc,0,sizeof(struct _bt_gatt_ccc));
+        ccc->cfg_changed = NULL;
+        ccc->cfg_write = NULL;
+        ccc->cfg_match = NULL;
+        desc_attr.read = bt_gatt_attr_read_ccc;
+        desc_attr.write = bt_gatt_attr_write_ccc;
+        desc_attr.user_data = (void *)ccc;
+    }else{
+        desc_attr.read = desp_attr->read;
+        desc_attr.write = desp_attr->write;
+        desc_attr.user_data = desp_attr->user_data;
+    }
+
+    desc_attr.handle = 0;
+    desc_attr.perm = desp_attr->perm;
+
+    memcpy(last->attrs+attr_idx,&desc_attr,sizeof(struct bt_gatt_attr));
+
+    d = (struct add_gatts_attr*)k_malloc(sizeof(struct add_gatts_attr));
+    d->attr = last->attrs+attr_idx;
+    attr_idx++;
+    sys_slist_append(&custom_desp_db, &d->node);
+    return 0;
+}
+
+static int bt_gatts_free_service_list(struct bt_gatt_service *svc)
+{
+    struct customer_svc_list *tmp_svc_list;
+    uint16_t id = 0;
+
+    if(sys_slist_is_empty(&custom_services_db)){
+        BT_ERR("Regsitered service list is empty");
+        return -EINVAL;
+    }
+
+    SYS_SLIST_FOR_EACH_CONTAINER(&custom_services_db, tmp_svc_list, node){
+        if(tmp_svc_list && tmp_svc_list->svc == svc){
+            sys_slist_find_and_remove(&custom_services_db,&tmp_svc_list->node);
+            k_free(tmp_svc_list);
+        }
+    }
+
+    return id;
+}
+
+int bt_gatts_get_service_simple_info(uint16_t svc_id,struct simple_svc_info *info,uint16_t info_num)
+{
+    struct simple_svc_info *sinfo = info;
+    struct customer_svc_list *tmp;
+    struct bt_gatt_service *dtmp;
+    struct bt_gatt_attr *attr = NULL;
+    int svc_idx = 0;
+    int state = 0;
+
+    if(sys_slist_is_empty(&custom_services_db)){
+        BT_ERR("No service registered yet");
+        return -EINVAL;
+    }
+
+    SYS_SLIST_FOR_EACH_CONTAINER(&custom_services_db, tmp, node){
+        if(tmp){
+            SYS_SLIST_FOR_EACH_CONTAINER(&db, dtmp, node){
+                if(dtmp == tmp->svc){
+                    state = 1;
+                }
+            }
+            svc_idx = tmp->svc_idx;
+            if(svc_idx == svc_id){
+                attr = tmp->svc->attrs;
+
+                for(int i = 1,info_idx=1; i < tmp->svc->attr_count && info_idx <= info_num; i++){
+                    if(attr && attr->uuid && sinfo){
+                        if(!bt_uuid_cmp(attr->uuid,BT_UUID_GATT_PRIMARY)){
+                            sinfo->type = 1;
+                            sinfo->idx = svc_idx;
+                            sinfo->state = state;
+                            struct bt_uuid *srv_uuid = (struct bt_uuid *)(attr->user_data);
+                            bt_uuid_to_str(srv_uuid,sinfo->uuid,sizeof(sinfo->uuid));
+                            info_idx++;
+                            sinfo += info_idx;
+                        }else if(!bt_uuid_cmp(attr->uuid,BT_UUID_GATT_SECONDARY) ||
+                                !bt_uuid_cmp(attr->uuid,BT_UUID_GATT_INCLUDE)){
+                            sinfo->type = 0;
+                            sinfo->idx = svc_idx;
+                            sinfo->state = state;
+                            struct bt_uuid *srv_uuid = (struct bt_uuid *)(attr->user_data);
+                            bt_uuid_to_str(srv_uuid,sinfo->uuid,sizeof(sinfo->uuid));
+                            info_idx++;
+                            sinfo += info_idx;
+                        }
+                        attr += i;
+                    }
+                }
+            }else{
+                state = 0;
+            }
+        }
+    }
+
+    return 0;
+}
+
+int bt_gatts_get_service_char(uint16_t svc_id,struct char_info *info,uint16_t char_num)
+{
+    struct char_info *cinfo = info;
+    struct customer_svc_list *tmp;
+    struct bt_gatt_attr *attr = NULL;
+    int svc_idx = 0;
+    int info_idx = 0;
+
+    if(sys_slist_is_empty(&custom_services_db)){
+        BT_ERR("No service registered yet");
+        return -EINVAL;
+    }
+
+    SYS_SLIST_FOR_EACH_CONTAINER(&custom_services_db, tmp, node){
+        if(tmp && tmp->svc && cinfo){
+            svc_idx = tmp->svc_idx;
+            if(svc_idx == svc_id){
+                attr = tmp->svc->attrs;
+                for(int i = 1; i < tmp->svc->attr_count && info_idx < char_num; i++){
+                    if(cinfo && attr && attr->uuid &&
+                        !bt_uuid_cmp(attr->uuid,BT_UUID_GATT_CHRC)){
+                        struct bt_gatt_chrc *gatt_chrc = (struct bt_gatt_chrc *)attr->user_data;
+                        cinfo->prop = gatt_chrc->properties;
+                        cinfo->char_idx = bt_gatt_attr_value_handle(attr);
+                        if(++attr){
+                            bt_uuid_to_str(attr->uuid,cinfo->uuid,sizeof(cinfo->uuid));
+                            cinfo->svc_idx = svc_idx;
+                        }
+                        info_idx++;
+                        cinfo = info + info_idx;
+                    }
+                    attr = tmp->svc->attrs + i;
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+
+static int attr_is_descptor(const struct bt_gatt_attr *desp_attr)
+{
+    struct add_gatts_attr *tmp_attr;
+    int ret = -1;
+
+    if(sys_slist_is_empty(&custom_desp_db)){
+        BT_ERR("No descriptor registered yet");
+        return -EINVAL;
+    }
+
+    SYS_SLIST_FOR_EACH_CONTAINER(&custom_desp_db, tmp_attr, node){
+        if(tmp_attr){
+            if(tmp_attr->attr == desp_attr){
+                ret = 0;
+            }
+        }
+    }
+
+    return ret;
+}
+
+
+static int free_attr_descptor(struct bt_gatt_attr *desp_attr)
+{
+    struct add_gatts_attr *tmp_attr;
+
+    if(sys_slist_is_empty(&custom_desp_db)){
+        BT_ERR("No descriptor registered yet");
+        return -EINVAL;
+    }
+
+    SYS_SLIST_FOR_EACH_CONTAINER(&custom_desp_db, tmp_attr, node){
+        if(tmp_attr){
+            if(tmp_attr->attr == desp_attr){
+                //sys_slist_find_and_remove(&custom_desp_db,&tmp_attr->node);
+                k_free(tmp_attr);
+            }
+        }
+    }
+
+    return 0;
+}
+
+
+static int bt_gatts_get_service_desp(struct bt_gatt_service *svc,
+                struct descrip_info *info,uint16_t desp_num)
+{
+    uint16_t phdl = 0;
+    uint16_t nhdl = 0;
+    int num_desp = 0;
+    int hdl = 0;
+    int idx = 0;
+
+    for(idx=0;idx<desp_num;idx++){
+        if(info[idx].char_idx){
+            phdl = info[idx].char_idx;
+            if(idx+1 > desp_num)
+                goto last;
+            nhdl = info[idx+1].char_idx;
+            const struct bt_gatt_attr *s = find_attr(phdl);
+            const struct bt_gatt_attr *p = find_attr(nhdl);
+            for(const struct bt_gatt_attr *d = s;d<p;d++){
+                if(d && !attr_is_descptor(d)){
+                    bt_uuid_to_str(d->uuid,info[idx].uuid,sizeof(info[idx].uuid));
+                    info[idx].desp_idx = info[idx].char_idx + d - s;
+                }
+            }
+        }
+    }
+
+last:
+    if(svc){
+       const struct bt_gatt_attr * a = find_attr(phdl);
+       num_desp = svc->attrs + svc->attr_count - a - 2;
+       for(int id=0;id<desp_num;id++){
+           if(phdl==info[id].char_idx){
+               info[id].desp_idx = phdl + 2;
+               while(num_desp>0){
+                   info[id].desp_idx += hdl;
+                   const struct bt_gatt_attr *temp_attr = find_attr(info[id].desp_idx);
+                   if(temp_attr){
+                       bt_uuid_to_str(temp_attr->uuid,info[id].uuid,sizeof(info[id].uuid));
+                   }
+                   num_desp--;
+                   hdl++;
+               }
+           }
+       }
+    }
+    return 0;
+}
+
+
+static int bt_gatts_get_service_char_hdl(struct bt_gatt_service *svc,uint16_t svc_id,
+                struct descrip_info *info,uint16_t desp_num)
+{
+    int idx = 0;
+    struct descrip_info *dinfo = info;
+
+    if(!svc){
+        return -EINVAL;
+    }
+
+    struct bt_gatt_attr *attr = svc->attrs;
+    for(int i = 1; i < (svc->attr_count - 1); i++){
+        if(dinfo && attr && attr->uuid){
+            if(!bt_uuid_cmp(attr->uuid,BT_UUID_GATT_CHRC)){
+                if(idx<=desp_num){
+                    dinfo->svc_idx = svc_id;
+                    dinfo->char_idx = bt_gatt_attr_value_handle(attr) - 1;
+                    idx++;
+                    dinfo = info + idx;
+                }else{
+                    BT_WARN("number (%d),idx (%d)",desp_num,idx);
+                    return -1;
+                }
+            }
+            attr = svc->attrs + i;
+        }
+    }
+
+    return 0;
+}
+
+int bt_gatts_get_service_desc(uint16_t svc_id,struct descrip_info *info,uint16_t desp_num)
+{
+    struct descrip_info *dinfo = info;
+    struct customer_svc_list *tmp;
+    int svc_idx = 0;
+    uint8_t uuid[37] = {0};
+
+    if(sys_slist_is_empty(&custom_services_db)){
+        BT_ERR("No service registered yet");
+        return -EINVAL;
+    }
+
+    SYS_SLIST_FOR_EACH_CONTAINER(&custom_services_db, tmp, node){
+        if(tmp && dinfo){
+            svc_idx = tmp->svc_idx;
+            if(svc_id == svc_idx){
+                bt_gatts_get_service_char_hdl(tmp->svc,svc_idx,dinfo,desp_num);
+                bt_gatts_get_service_desp(tmp->svc,dinfo,desp_num);
+            }
+        }
+    }
+
+    for(int i=0;i<desp_num;i++){
+        if(!memcmp(info[i].uuid,uuid,sizeof(info[i].uuid))){
+            if(i+1 < desp_num){
+                memcpy(&info[i],&info[i+1],sizeof(struct descrip_info));
+                memset(&info[i+1],0,sizeof(struct descrip_info));
+            }
+        }
+    }
+
+    return 0;
+}
+
+uint16_t bt_gatts_add_service(void)
+{
+    int ret;
+    struct bt_gatt_service *serv_info;
+    struct customer_svc_list *list;
+
+    list = SYS_SLIST_PEEK_TAIL_CONTAINER(&custom_services_db, list, node);
+    if(!list){
+        BT_ERR("list is NULL");
+        return -ENOBUFS;
+    }
+
+    serv_info = list->svc;
+    if(serv_info->attr_count != attr_idx){
+        BT_ERR("Invalid attribution count (%d) attr_idx(%d)",serv_info->attr_count,attr_idx);
+        return -EINVAL;
+    }
+    ret = gatt_register(serv_info);
+    if(!ret){
+        service_idx++;
+        attr_idx = 0;
+    }
+    list->svc_idx = service_idx;
+
+    return service_idx;
+}
+
+int bt_gatts_del_service(uint16_t svc_id)
+{
+    int ret = 0;
+    int svc_idx = 0;
+    struct bt_gatt_attr *pattr = NULL;
+    struct customer_svc_list *svc_list;
+    struct bt_gatt_service *serv_info;
+
+    SYS_SLIST_FOR_EACH_CONTAINER(&custom_services_db, svc_list, node){
+        if(svc_list && svc_list->svc){
+            svc_idx = svc_list->svc_idx;
+            serv_info = svc_list->svc;
+            if(svc_id == svc_idx){
+                ret = bt_gatt_service_unregister(serv_info);
+                bt_gatts_free_service_list(serv_info);
+                for(int i = 0; i < serv_info->attr_count; i++){
+                    pattr = serv_info->attrs + i;
+                    if(pattr && pattr->user_data &&
+                       (!bt_uuid_cmp(pattr->uuid,BT_UUID_GATT_CHRC) || !bt_uuid_cmp(pattr->uuid,BT_UUID_GATT_CCC))){
+                        k_free(pattr->user_data);
+                    }
+
+                    if(pattr && !attr_is_descptor(pattr)){
+                        free_attr_descptor(pattr);
+                    }
+                }
+
+                if(serv_info && serv_info->attrs){
+                    k_free(serv_info->attrs);
+                    serv_info->attrs = NULL;
+                }
+
+                if(serv_info){
+                    k_free(serv_info);
+                    serv_info = NULL;
+                }
+            }
+        }
+    }
+
+    return ret;
+}
+#endif
+#endif

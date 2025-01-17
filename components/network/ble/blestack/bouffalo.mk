@@ -28,7 +28,8 @@ ble_stack_srcs_dirs+= src/cli_cmds
 endif
 
 ble_stack_srcs_include_dirs    += src/port/include \
-                                src/common \
+								src \
+								src/common \
 								src/common/include \
 								src/common/include/zephyr  \
 								src/common/include/misc  \
@@ -83,14 +84,17 @@ ble_stack_srcs  := src/port/bl_port.c \
 					src/common/tinycrypt/source/utils.c \
 					src/bl_hci_wrapper/bl_hci_wrapper.c \
 					src/hci_onchip/hci_driver.c \
-					src/host/att.c \
-					src/host/conn.c \
 					src/host/crypto.c \
-					src/host/gatt.c \
 					src/host/hci_core.c \
 					src/host/hci_ecc.c \
 					src/host/l2cap.c \
-					src/host/uuid.c \
+					src/host/uuid.c
+
+ifneq ($(CONFIG_BT_CONN), 0)
+ble_stack_srcs  += src/host/att.c \
+                   src/host/conn.c \
+		   src/host/gatt.c
+endif
 					
 ifneq ($(CONFIG_DISABLE_BT_SMP), 1)
 ble_stack_srcs  += src/host/smp.c \
@@ -113,6 +117,11 @@ ble_stack_srcs   += src/services/oad/oad_main.c \
 					src/services/oad/oad_service.c
 endif
 
+ifeq ($(CONFIG_BT_SPP_SERVER),1)
+ble_stack_srcs   += src/services/spp.c
+endif
+
+
 ifeq ($(CONFIG_BT_STACK_CLI),1)
 ble_stack_srcs   += src/cli_cmds/ble_cli_cmds.c \
 					src/cli_cmds/bredr_cli_cmds.c \
@@ -131,9 +140,18 @@ ifeq ($(CONFIG_BT_DIS_SERVER),1)
 ble_stack_srcs   += src/services/dis.c
 endif
 
+ifeq ($(CONFIG_BT_IAS_SERVER),1)
+ble_stack_srcs   += src/services/ias.c
+endif
+
 ifeq ($(CONFIG_HOGP_SERVER),1)
 ble_stack_srcs   += src/services/hog.c
 endif
+
+ifeq ($(CONFIG_ATVV_SERVER),1)
+ble_stack_srcs   += src/services/atvv.c
+endif
+
 
 ifeq ($(CONFIG_BLE_TP_SERVER),1)
 ble_stack_srcs   += src/services/ble_tp_svc.c
@@ -143,16 +161,14 @@ ifeq ($(CONFIG_BLE_MULTI_ADV),1)
 ble_stack_srcs   += src/host/multi_adv.c
 endif
 
+ifeq ($(CONFIG_BT_RESET),1)
 ble_stack_srcs   += src/host/bl_host_assist.c
+endif
 
-bredr_stack_srcs := src/host/a2dp.c \
-					src/host/at.c \
-					src/host/avdtp.c \
-					src/host/hfp_hf.c \
-					src/host/keys_br.c \
-					src/host/l2cap_br.c \
-					src/host/rfcomm.c \
-					src/host/sdp.c \
+ble_audio_srcs   := src/host/iso.c
+
+bredr_stack_srcs := src/host/keys_br.c \
+                    src/host/l2cap_br.c \
 
 sbc_codec_srcs := 	src/sbc/dec/alloc.c \
 					src/sbc/dec/bitalloc.c \
@@ -181,6 +197,10 @@ sbc_codec_include_dirs := 	src/sbc/dec \
 							src/sbc/enc \
 
 COMPONENT_SRCS := $(ble_stack_srcs)
+
+ifeq ($(CONFIG_BT_AUDIO),1)
+COMPONENT_SRCS += $(ble_audio_srcs)
+endif
 
 ifeq ($(CONFIG_BT_BREDR),1)
 COMPONENT_SRCS += $(bredr_stack_srcs)

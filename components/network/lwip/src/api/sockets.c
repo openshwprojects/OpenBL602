@@ -566,6 +566,7 @@ free_socket_locked(struct lwip_sock *sock, int is_tcp, struct netconn **conn,
   return 1;
 }
 
+
 int LWIP_GetMaxSockets() {
 	return NUM_SOCKETS;
 }
@@ -3023,6 +3024,10 @@ lwip_getsockopt_impl(int s, int level, int optname, void *optval, socklen_t *opt
           *(int *)optval = udp_is_flag_set(sock->conn->pcb.udp, UDP_FLAGS_NOCHKSUM) ? 1 : 0;
           break;
 #endif /* LWIP_UDP*/
+        case SO_CONNINFO:
+          LWIP_SOCKOPT_CHECK_OPTLEN_CONN(sock, *optlen, void *);
+          *(void **)optval = sock->conn;
+          break;
         default:
           LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_getsockopt(%d, SOL_SOCKET, UNIMPL: optname=0x%x, ..)\n",
                                       s, optname));
@@ -4169,5 +4174,10 @@ lwip_socket_drop_registered_mld6_memberships(int s)
   done_socket(sock);
 }
 #endif /* LWIP_IPV6_MLD */
+
+#ifdef BUGKILLER
+#include <bugkiller/bugkiller_socket_dump.inc>
+#include <bugkiller/bugkiller_mbox_dump.inc>
+#endif
 
 #endif /* LWIP_SOCKET */

@@ -8,7 +8,7 @@
 
 #include <zephyr.h>
 #include <string.h>
-#include <errno.h>
+#include <sys/errno.h>
 #include <stdbool.h>
 #include <atomic.h>
 #include <misc/byteorder.h>
@@ -302,6 +302,12 @@ static u8_t att_mtu_req(struct bt_att *att, struct net_buf *buf)
 	att->chan.tx.mtu = att->chan.rx.mtu;
 
 	BT_DBG("Negotiated MTU %u", att->chan.rx.mtu);
+
+    #if defined(BFLB_BLE_MTU_CHANGE_CB)
+    if(att->chan.chan.ops->mtu_changed)
+        att->chan.chan.ops->mtu_changed(&(att->chan.chan), att->chan.rx.mtu);    
+    #endif
+    
 	return 0;
 }
 
@@ -388,7 +394,9 @@ static u8_t att_handle_rsp(struct bt_att *att, void *pdu, u16_t len, u8_t err)
 	func = att->req->func;
 	att->req->func = NULL;
 
-	func(att->chan.chan.conn, err, pdu, len, att->req);
+	if (func) {
+		func(att->chan.chan.conn, err, pdu, len, att->req);
+	}
 
 	/* Don't destroy if callback had reused the request */
 	if (!att->req->func) {
@@ -1088,7 +1096,7 @@ static u8_t att_read_mult_req(struct bt_att *att, struct net_buf *buf)
 			net_buf_unref(data.buf);
 			/* Respond here since handle is set */
 			send_err_rsp(conn, BT_ATT_OP_READ_MULT_REQ, handle,
-				     data.err);
+			             data.err);
 			return 0;
 		}
 	}
@@ -2219,7 +2227,14 @@ static void bt_att_disconnected(struct bt_l2cap_chan *chan)
     if(att->tx_queue._queue.hdl){
     	k_queue_free(&att->tx_queue._queue);
     	att->tx_queue._queue.hdl = NULL;
-   	}
+    }
+
+    #if CONFIG_BT_ATT_PREPARE_COUNT > 0
+    if(att->prep_queue._queue.hdl){
+    	k_queue_free(&att->prep_queue._queue);
+    	att->prep_queue._queue.hdl = NULL;
+    }
+    #endif
    	
     if(att->tx_sem.sem.hdl)
         k_sem_delete(&att->tx_sem);
@@ -2256,7 +2271,14 @@ static void bt_att_encrypt_change(struct bt_l2cap_chan *chan,
 		return;
 	}
 
-	k_sem_take(&att->tx_sem, K_FOREVER);
+    #if (BFLB_BT_CO_THREAD)
+     if (k_sem_take(&att->tx_sem, K_NO_WAIT) < 0) {
+        k_fifo_put(&att->tx_queue, att->req->buf);
+		return;
+	}
+    #else
+    k_sem_take(&att->tx_sem, K_FOREVER);
+    #endif
 	if (!att_is_connected(att)) {
 		BT_WARN("Disconnected");
 		k_sem_give(&att->tx_sem);
@@ -2272,6 +2294,13 @@ static void bt_att_encrypt_change(struct bt_l2cap_chan *chan,
 }
 #endif /* CONFIG_BT_SMP */
 
+#if defined(BFLB_BLE_MTU_CHANGE_CB)
+void bt_att_mtu_changed(struct bt_l2cap_chan *chan, u16_t mtu)
+{
+    bt_gatt_mtu_changed(chan->conn, mtu);
+}
+#endif
+
 static int bt_att_accept(struct bt_conn *conn, struct bt_l2cap_chan **chan)
 {
 	int i;
@@ -2282,6 +2311,9 @@ static int bt_att_accept(struct bt_conn *conn, struct bt_l2cap_chan **chan)
 #if defined(CONFIG_BT_SMP)
 		.encrypt_change = bt_att_encrypt_change,
 #endif /* CONFIG_BT_SMP */
+#if defined(BFLB_BLE_MTU_CHANGE_CB)
+        .mtu_changed = bt_att_mtu_changed,
+#endif     
 	};
 
 	BT_DBG("conn %p handle %u", conn, conn->handle);
@@ -2308,6 +2340,85 @@ static int bt_att_accept(struct bt_conn *conn, struct bt_l2cap_chan **chan)
 	return -ENOMEM;
 }
 
+#if(BFLB_BLE_ENABLE_TEST_PSM)
+static void bt_test_connected(struct bt_l2cap_chan *chan)
+{
+    printf("bt_test_connected\r\n");    
+}
+
+static void bt_test_disconnected(struct bt_l2cap_chan *chan)
+{
+    printf("bt_test_disconnected\r\n");
+}
+
+static int bt_test_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
+{
+    printf("len=%d",buf->len);
+    return 0;
+}
+
+static struct bt_l2cap_chan_ops test_ops = {
+	.connected = bt_test_connected,
+	.disconnected = bt_test_disconnected,
+	.recv = bt_test_recv,
+	};
+
+static struct bt_l2cap_le_chan test_chan = {
+    .chan.ops = &test_ops,
+};
+
+static int bt_test_accept(struct bt_conn *conn, struct bt_l2cap_chan **chan)
+{
+	//return bt_att_accept(conn, chan);
+	*chan = &test_chan.chan;
+    return 0;
+}
+
+int bt_connect_test_psm(struct bt_conn *conn, uint16_t psm)
+{
+	int err;
+
+	if (!conn) {
+		BT_WARN("Invalid Connection");
+		return -ENOTCONN;
+	} else if (test_chan.chan.conn) {
+		BT_INFO("Channel already in use");
+		return -ENOEXEC;
+	}
+
+	BT_INFO("Connecting L2CAP Connection Oriented Channel .........");
+	err = bt_l2cap_chan_connect(conn, &test_chan.chan, psm);
+
+	if (err < 0) {
+		BT_WARN("Unable to connect to psm %u (err %u)",
+				psm, err);
+	} else {
+		BT_INFO("L2CAP connection pending");
+	}
+
+	return err;
+}
+
+int bt_register_test_psm(uint16_t psm, uint8_t sec_level)
+{
+    int err;
+	static struct bt_l2cap_server test_server;
+
+	BT_DBG("");
+
+    test_server.psm = psm;
+    test_server.sec_level = sec_level;
+    test_server.accept = bt_test_accept;
+
+	err = bt_l2cap_server_register(&test_server);
+	if (err < 0) {
+		BT_ERR("EATT Server registration failed %d", err);
+	}
+
+    return err;
+}
+#endif
+
 BT_L2CAP_CHANNEL_DEFINE(att_fixed_chan, BT_L2CAP_CID_ATT, bt_att_accept);
 
 void bt_att_init(void)
@@ -2323,8 +2434,11 @@ void bt_att_init(void)
 
     #if CONFIG_BT_ATT_PREPARE_COUNT > 0
     #if defined(BFLB_DYNAMIC_ALLOC_MEM)
-    k_lifo_init(&prep_pool.free, CONFIG_BT_ATT_PREPARE_COUNT);
+    #if (BFLB_STATIC_ALLOC_MEM)
+    net_buf_init(PREP,&prep_pool, CONFIG_BT_ATT_PREPARE_COUNT, BT_ATT_MTU, NULL);
+    #else
     net_buf_init(&prep_pool, CONFIG_BT_ATT_PREPARE_COUNT, BT_ATT_MTU, NULL);
+    #endif
     #endif
     #endif
 
@@ -2403,6 +2517,17 @@ int bt_att_req_send(struct bt_conn *conn, struct bt_att_req *req)
 	}
 
 	return att_send_req(att, req);
+}
+
+struct bt_att_req *bt_att_get_att_req(struct bt_conn *conn)
+{
+    struct bt_att *att;
+
+    att = att_chan_get(conn);
+    if(att)
+        return att->req;
+    else
+        return NULL;
 }
 
 void bt_att_req_cancel(struct bt_conn *conn, struct bt_att_req *req)

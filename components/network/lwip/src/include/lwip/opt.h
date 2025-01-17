@@ -2528,7 +2528,11 @@
  * applicable, plus any number of groups to be joined on UDP sockets.
  */
 #if !defined MEMP_NUM_MLD6_GROUP || defined __DOXYGEN__
+#ifdef LWIP_IPV6_FOR_BORDER_ROUTER
+#define MEMP_NUM_MLD6_GROUP             (4+10)
+#else
 #define MEMP_NUM_MLD6_GROUP             4
+#endif /* LWIP_IPV6_FOR_BORDER_ROUTER */
 #endif
 /**
  * @}
@@ -2739,6 +2743,10 @@
  */
 #ifdef __DOXYGEN__
 #define LWIP_HOOK_FILENAME "path/to/my/lwip_hooks.h"
+#endif
+
+#ifdef CONFIG_LWIP_HOOK_ND6_GET_GW_DEFAULT
+#define LWIP_HOOK_FILENAME "lwip_default_hooks.h"
 #endif
 
 /**

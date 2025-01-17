@@ -315,7 +315,7 @@ struct bt_le_adv_param {
 	/** Maximum Advertising Interval (N * 0.625) */
 	u16_t interval_max;
 
-    #if defined(CONFIG_BT_STACK_PTS)
+    #if defined(CONFIG_BT_STACK_PTS) ||defined(CONFIG_AUTO_PTS)
     u8_t  addr_type;
     #endif
 };
@@ -853,9 +853,14 @@ void bt_foreach_bond(u8_t id, void (*func)(const struct bt_bond_info *info, void
 		     void *user_data);
 
 /**
+  * write local name.
+  */
+int bt_br_write_local_name(char *name);
+
+/**
   * write extern inquiry response.
   */
-int bt_br_write_eir(u8_t rec, u8_t *data);
+int bt_br_write_eir(u8_t fec, u8_t *data);
 /**
  * @}
  */

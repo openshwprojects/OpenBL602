@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Bouffalolab.
+ * Copyright (c) 2016-2022 Bouffalolab.
  *
  * This file is part of
  *     *** Bouffalolab Software Dev Kit ***
@@ -31,6 +31,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <utils_string.h>
 
 static int params_filter(char** params,uint32_t *r)
 {	
@@ -121,3 +122,306 @@ void get_uint32_from_string(char** params, uint32_t *result)
 		*result = 0;
 }
 
+void utils_parse_number(const char *str, char sep, uint8_t *buf, int buflen, int base)
+{
+  int i;
+  for (i = 0; i < buflen; i++) {
+    buf[i] = (uint8_t)strtol(str, NULL, base);
+    str = strchr(str, sep);
+    if (str == NULL || *str == '\0') {
+      break;
+    }
+    str++;
+  }
+}
+
+void utils_parse_number_adv(const char *str, char sep, uint8_t *buf, int buflen, int base, int *count)
+{
+  int i;
+
+  for (i = 0; i < buflen; i++) {
+    buf[i] = (uint8_t)strtol(str, NULL, base);
+    str = strchr(str, sep);
+    if (str == NULL || *str == '\0') {
+      break;
+    }
+    str++;
+  }
+  *count = (i + 1);
+}
+
+
+unsigned long long convert_arrayToU64(uint8_t* inputArray)
+{
+    unsigned long long result = 0;
+    for(uint8_t i = 0; i < 8; i++)
+    {
+        result <<= 8;
+        result |= (unsigned long long)inputArray[7-i];
+    }
+
+    return result;
+}
+
+void convert_u64ToArray(unsigned long long inputU64, uint8_t result[8])
+{
+    for(int i = 0; i < 8; i++)
+    {
+        result[i] = inputU64>>(i*8);
+    }
+}
+
+void utils_memcpy8(void *dst, void *src, size_t len)
+{
+    uint8_t *d = (uint8_t *)dst;
+    uint8_t *s = (uint8_t *)src;
+
+    while (len--) {
+        *d++ = *s++;
+    }
+}
+
+void utils_memcpy16(void *dst, void *src, size_t len)
+{
+    uint16_t *d = (uint16_t *)dst;
+    uint16_t *s = (uint16_t *)src;
+
+    len >>= 1;//convert to half words
+
+    while (len--) {
+        *d++ = *s++;
+    }
+}
+
+void utils_memcpy32(void *dst, void *src, size_t len)
+{
+    uint32_t *d = (uint32_t *)dst;
+    uint32_t *s = (uint32_t *)src;
+
+    len >>= 2;//convert to words
+
+    while (len--) {
+        *d++ = *s++;
+    }
+}
+
+void utils_memcpy64(void *dst, void *src, size_t len)
+{
+    uint64_t *d = (uint64_t *)dst;
+    uint64_t *s = (uint64_t *)src;
+
+    len >>= 3;//convert to two words
+
+    while (len--) {
+        *d++ = *s++;
+    }
+}
+
+void utils_memset8(void *src, uint8_t n, size_t len)
+{
+    uint8_t *s = (uint8_t *)src;
+
+    while (len--) {
+        *s++ = n;
+    }
+}
+
+void utils_memset16(void *src, uint16_t n, size_t len)
+{
+    uint16_t *s = (uint16_t *)src;
+
+    len >>= 1;//convert to half words
+
+    while (len--) {
+        *s++ = n;
+    }
+}
+
+void utils_memset32(void *src, uint32_t n, size_t len)
+{
+    uint32_t *s = (uint32_t *)src;
+
+    len >>= 2;//convert to words
+
+    while (len--) {
+        *s++ = n;
+    }
+}
+
+void utils_memset64(void *src, uint64_t n, size_t len)
+{
+    uint64_t *s = (uint64_t *)src;
+
+    len >>= 3;//convert to two words
+
+    while (len--) {
+        *s++ = n;
+    }
+}
+
+void utils_memset8_with_seq(void *src, uint8_t seq, size_t len)
+{
+    uint8_t *s = (uint8_t *)src;
+
+    while (len--) {
+        *s++ = (seq++);
+    }
+}
+
+void utils_memset16_with_seq(void *src, uint16_t seq, size_t len)
+{
+    uint16_t *s = (uint16_t *)src;
+
+    len >>= 1;//convert to half words
+
+    while (len--) {
+        *s++ = (seq++);
+    }
+}
+
+void utils_memset32_with_seq(void *src, uint32_t seq, size_t len)
+{
+    uint32_t *s = (uint32_t *)src;
+
+    len >>= 2;//convert to words
+
+    while (len--) {
+        *s++ = (seq++);
+    }
+}
+
+void utils_memset64_with_seq(void *src, uint64_t seq, size_t len)
+{
+    uint64_t *s = (uint64_t *)src;
+
+    len >>= 3;//convert to two words
+
+    while (len--) {
+        *s++ = (seq++);
+    }
+}
+
+void utils_memdrain8(void *src, size_t len)
+{
+    volatile uint8_t *s = (uint8_t *)src;
+    uint8_t tmp;
+
+    while (len--) {
+        tmp = *s++;
+    }
+
+    (void)tmp;
+}
+
+void utils_memdrain16(void *src, size_t len)
+{
+    volatile uint16_t *s = (uint16_t *)src;
+    uint16_t tmp;
+
+    len >>= 1;//convert to half words
+
+    while (len--) {
+        tmp = *s++;
+    }
+    
+    (void)tmp;
+}
+
+void utils_memdrain32(void *src, size_t len)
+{
+    volatile uint32_t *s = (uint32_t *)src;
+    uint32_t tmp;
+
+    len >>= 2;//convert to words
+
+    while (len--) {
+        tmp = *s++;
+    }
+    
+    (void)tmp;
+}
+
+void utils_memdrain64(void *src, size_t len)
+{
+    volatile uint64_t *s = (uint64_t *)src;
+    uint64_t tmp;
+
+    len >>= 3;//convert to two words
+
+    while (len--) {
+        tmp = *s++;
+    }
+    
+    (void)tmp;
+}
+
+void * utils_memdrain8_with_check(void *src, size_t len, uint8_t seq)
+{
+    volatile uint8_t *s = (uint8_t *)src;
+    uint8_t tmp;
+
+    (void)tmp;
+
+    while (len--) {
+        tmp = *s++;
+        if((seq++) != tmp){
+            return (uint8_t *)s-1;
+        }
+    }
+
+    return NULL; 
+}
+
+void * utils_memdrain16_with_check(void *src, size_t len, uint16_t seq)
+{
+    volatile uint16_t *s = (uint16_t *)src;
+    uint16_t tmp;
+    (void)tmp;
+
+    len >>= 1;//convert to half words
+
+    while (len--) {
+        tmp = *s++;
+        if((seq++) != tmp){
+            return (uint16_t *)s-1;
+        }
+    }
+    
+    return NULL; 
+}
+
+void * utils_memdrain32_with_check(void *src, size_t len, uint32_t seq)
+{
+    volatile uint32_t *s = (uint32_t *)src;
+    uint32_t tmp;
+    (void)tmp;
+
+    len >>= 2;//convert to words
+
+    while (len--) {
+        tmp = *s++;
+        if((seq++) != tmp){
+            return (uint32_t *)s-1;
+        }
+    }
+    
+    return NULL; 
+}
+
+void * utils_memdrain64_with_check(void *src, size_t len, uint64_t seq)
+{
+    volatile uint64_t *s = (uint64_t *)src;
+    uint64_t tmp;
+    (void)tmp;
+
+    len >>= 3;//convert to two words
+
+    while (len--) {
+        tmp = *s++;
+        if((seq++) != tmp){
+            return (uint64_t *)s-1;
+        }
+    }
+    
+    return NULL; 
+}
