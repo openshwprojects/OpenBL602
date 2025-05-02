@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Bouffalolab.
+ * Copyright (c) 2016-2022 Bouffalolab.
  *
  * This file is part of
  *     *** Bouffalolab Software Dev Kit ***
@@ -62,13 +62,10 @@ typedef struct{
     }p;
 }hci_pkt_struct;
 
-#if defined(OPTIMIZE_DATA_EVT_FLOW_FROM_CONTROLLER)
-typedef void (*bt_hci_recv_cb)(uint8_t pkt_type, uint16_t src_id, uint8_t *param, uint8_t param_len, void *rx_buf);
-uint8_t bt_onchiphci_hanlde_rx_acl(void *param, uint8_t *host_buf_data);
-#else
 typedef void (*bt_hci_recv_cb)(uint8_t pkt_type, uint16_t src_id, uint8_t *param, uint8_t param_len);
-#endif
+
 uint8_t bt_onchiphci_interface_init(bt_hci_recv_cb cb);
-int bt_onchiphci_send(uint8_t pkt_type, uint16_t dest_id, hci_pkt_struct *pkt);
+int8_t bt_onchiphci_send(uint8_t pkt_type, uint16_t dest_id, hci_pkt_struct *pkt);
+uint8_t bt_onchiphci_hanlde_rx_acl(void *param, uint8_t *host_buf_data);
 
 #endif

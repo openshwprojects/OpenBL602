@@ -17,7 +17,6 @@
  * @{
  */
 
-#include <atomic.h>
 #include <../bluetooth/buf.h>
 #include <conn.h>
 #include <hci_host.h>
@@ -244,6 +243,10 @@ struct bt_l2cap_chan_ops {
 	 *  @param status The channel status
 	 */
 	void (*status)(struct bt_l2cap_chan *chan, atomic_t *status);
+    
+    #if defined(BFLB_BLE_MTU_CHANGE_CB)
+    void (*mtu_changed)(struct bt_l2cap_chan *chan, u16_t mtu);
+    #endif
 };
 
 /** @def BT_L2CAP_CHAN_SEND_RESERVE
@@ -381,6 +384,12 @@ int bt_l2cap_chan_send(struct bt_l2cap_chan *chan, struct net_buf *buf);
  */
 int bt_l2cap_chan_recv_complete(struct bt_l2cap_chan *chan,
 				struct net_buf *buf);
+
+/*Send l2cap disconnect request*/
+int bt_l2cap_disconnect(struct bt_conn *conn, uint16_t tx_cid);
+/*Send l2cap echo request*/
+int bt_l2cap_br_echo_req(struct bt_conn *conn);
+
 
 #ifdef __cplusplus
 }

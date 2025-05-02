@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Bouffalolab.
+ * Copyright (c) 2016-2022 Bouffalolab.
  *
  * This file is part of
  *     *** Bouffalolab Software Dev Kit ***
@@ -55,7 +55,7 @@
 #define OUTBUF_SIZE  512
 #define MAX_DYNAMIC_COMMANDS 8
 
-#define CLI_MAX_ARG_NUM    16
+#define CLI_MAX_ARG_NUM    32
 #define CLI_MAX_ONCECMD_NUM    4
 
 #endif
@@ -225,6 +225,13 @@ void *aos_cli_task_get(void);
  * @return 0 success, others not success
  */
 int aos_cli_task_create(void);
+
+/**
+ * get cli device fd
+ *
+ * @return cli device fd
+ */
+int aos_cli_device_fd_get(void);
 
 #else /* CONFIG_AOS_CLI */
 

@@ -10,20 +10,56 @@
 #include <string.h>
 #include "atomic.h"
 
-#include "errno.h"
+#include <sys/errno.h>
 #include <FreeRTOS.h>
 #include <task.h>
 #include <semphr.h>
 #include <timers.h>
-#if defined(BL702)
-#include "bl702.h"
+#include <stdlib.h>
+
+#if defined(BL_MCU_SDK)
+#define TRNG_LOOP_COUNTER   (17)
+extern BL_Err_Type Sec_Eng_Trng_Get_Random(uint8_t *data,uint32_t len);
+extern BL_Err_Type Sec_Eng_Trng_Enable(void);
+int bl_rand();
+#else
+extern int bl_rand();
 #endif
 
-extern int bl_rand();
+ int  ble_rand()
+{
+    #if defined(CONFIG_HW_SEC_ENG_DISABLE)
+    return random();
+    #else
+    return bl_rand();
+    #endif
+}
+
+
+#if defined(BL_MCU_SDK)
+int bl_rand()
+{
+    unsigned int val;
+    int counter = 0;
+    int32_t ret = 0;
+    do {
+        ret = Sec_Eng_Trng_Get_Random((uint8_t*)&val,4);
+        if(ret < -1){
+               return -1;
+        }
+        if ((counter++) > TRNG_LOOP_COUNTER) {
+            break;
+        }
+    } while (0 == val);
+    val >>= 1;//leave signe bit alone
+    return val;
+}
+#endif
+
 void k_queue_init(struct k_queue *queue, int size)
 {
     //int size = 20;
-    uint8_t blk_size = sizeof(void *) + 1;
+    uint8_t blk_size = sizeof(void *);
 
 
     queue->hdl = xQueueCreate(size, blk_size);
@@ -217,17 +253,26 @@ int k_thread_create(struct k_thread *new_thread, const char *name,
     return new_thread->task? 0 : -1;
 }
 
-void k_thread_delete(struct k_thread *new_thread)
+void k_thread_delete(struct k_thread *thread)
 {
-    if(NULL == new_thread || 0 == new_thread->task)
+    if(NULL == thread || 0 == thread->task)
     {
         BT_ERR("task is NULL\n");
         return;
     }
     
-    vTaskDelete((void *)(new_thread->task));
-    new_thread->task = 0;
+    vTaskDelete((void *)(thread->task));
+    thread->task = 0;
     return;
+}
+
+bool k_is_current_thread(struct k_thread *thread)
+{
+    eTaskState thread_state = eTaskGetState((void *)(thread->task));
+    if(thread_state == eRunning)
+        return true;
+    else
+        return false;
 }
 
 int k_yield(void)
@@ -336,19 +381,27 @@ long long k_now_ms(void)
 
 void k_get_random_byte_array(uint8_t *buf, size_t len)
 {
-    // bl_rand() return a word, but *buf may not be word-aligned
+    // ble_rand() return a word, but *buf may not be word-aligned
     for(int i = 0; i < len; i++)
     {
-        *(buf + i) = (uint8_t)(bl_rand() & 0xFF);
+        *(buf + i) = (uint8_t)(ble_rand() & 0xFF);
     }
 }
 
 void *k_malloc(size_t size)
 {
+#if defined(CFG_USE_PSRAM)
+    return pvPortMallocPsram(size);
+#else
     return pvPortMalloc(size);
+#endif /* CFG_USE_PSRAM */
 }
 
 void k_free(void *buf)
 {
+#if defined(CFG_USE_PSRAM)
+    return vPortFreePsram(buf);
+#else
     return vPortFree(buf);
+#endif
 }

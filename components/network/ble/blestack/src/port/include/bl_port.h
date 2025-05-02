@@ -1,10 +1,14 @@
 #ifndef BL_PORT_H
 #define BL_PORT_H
-#include "config.h"
+#if defined(BL_MCU_SDK)
+#include "misc.h"
+#endif
+#include "port/include/config.h"
 #include <misc/dlist.h>
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include "types.h"
 #include "bl_port.h"
@@ -234,6 +238,8 @@ int k_thread_create(struct k_thread *new_thread, const char *name,
                
 void k_thread_delete(struct k_thread *new_thread);
 
+bool k_is_current_thread(struct k_thread *thread);
+
 /**
  * @brief Yield the current thread.
  */
@@ -257,7 +263,13 @@ void irq_unlock(unsigned int key);
 
 int k_is_in_isr(void);
 
+#ifdef  BIT
+#undef BIT
 #define BIT(n)  (1UL << (n))
+#else
+#define BIT(n)  (1UL << (n))
+#endif
+
 long long k_now_ms(void);
 void k_get_random_byte_array(uint8_t *buf, size_t len);
 void *k_malloc(size_t size);

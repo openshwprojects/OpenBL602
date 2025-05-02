@@ -43,8 +43,21 @@ def bl602_demo_event_RPI_ble_wifi_tc(env, extra_data):
         # scan bluetooth
         
         rst = scan_device(local_addr[0])
-        if rst != True:
-            raise Exception
+        if not rst:
+            rst_flag = False
+            for i in range(5):
+                rst = scan_device(local_addr[0])
+                if rst:
+                    rst_flag = True
+                    break
+            if rst_flag:
+                print("scan success!")
+                connect_device(local_addr[0])
+                time.sleep(1)
+                dut.expect("Connected", timeout=5)
+                print("connect success!")
+            else:
+                raise Exception
         else:
             print("scan success!")
             connect_device(local_addr[0])
@@ -52,7 +65,7 @@ def bl602_demo_event_RPI_ble_wifi_tc(env, extra_data):
             dut.expect("Connected", timeout=5)
             print("connect success!")
         dut.write('stack_wifi')
-        time.sleep(0.5)
+        time.sleep(1)
         bssid = os.getenv('TEST_ROUTER_SSID')
         pwd = os.getenv('TEST_ROUTER_PASSWORD')
         cmd = ("wifi_sta_connect", bssid, pwd)
@@ -65,10 +78,10 @@ def bl602_demo_event_RPI_ble_wifi_tc(env, extra_data):
         dut.write('reboot')
         dut.expect("Booting BL602 Chip...", timeout=1.5)
         print('BL602 rebooted')
-        time.sleep(0.2)
+        time.sleep(1)
 
         dut.write('stack_wifi')
-        time.sleep(0.5)
+        time.sleep(1)
         bssid = os.getenv('TEST_ROUTER_SSID')
         pwd = os.getenv('TEST_ROUTER_PASSWORD')
         cmd = ("wifi_sta_connect", bssid, pwd)
@@ -78,7 +91,7 @@ def bl602_demo_event_RPI_ble_wifi_tc(env, extra_data):
         dut.expect("Entering wifiConnected_IPOK state", timeout=20)
 
         dut.write('stack_ble')
-        time.sleep(0.5)
+        time.sleep(1)
         dut.write('ble_init')
         dut.expect("Init successfully", timeout=3)
         dut.write('ble_auth')
@@ -90,18 +103,36 @@ def bl602_demo_event_RPI_ble_wifi_tc(env, extra_data):
         local_addr = dut.expect(re.compile(r"Local public addr : (.*) "), timeout=5)
         print(f'Local public addr is {local_addr[0]}')
         rst = scan_device(local_addr[0])
-        if rst != True:
-            raise Exception
+        if not rst:
+            rst_flag = False
+            for i in range(5):
+                rst = scan_device(local_addr[0])
+                if rst:
+                    rst_flag = True
+                    break
+            if rst_flag:
+                print("scan success!")
+                connect_device(local_addr[0])
+                time.sleep(1)
+                dut.expect("Connected", timeout=5)
+                print("connect success!")
+            else:
+                raise Exception
         else:
             print("scan success!")
+            time.sleep(1)
             connect_device(local_addr[0])
             time.sleep(1)
-            dut.expect("Connected", timeout=1)
+            dut.expect("Connected", timeout=5)
             print("connect success!")
         dut.halt()
     except Exception:
+        dut.write('p 0')
+        result_text = dut.read()
+        print(result_text)
         print('ENV_TEST_FAILURE: BL602 ble_wifi test failed')
         raise
+
 
 def scan_device(mac):
     rst = []
@@ -132,12 +163,23 @@ def scan_device(mac):
     except KeyError:
         return False
 
+
 def connect_device(mac):
-    
-    conn = btle.Peripheral(mac, "public")
-    print("BLE is connected")
+    ble_connect_flag = False
+    for i in range(5):
+        try:
+            conn = btle.Peripheral(mac, "public")
+            ble_connect_flag = True
+            print("BLE is connected")
+            break
+        except:
+            time.sleep(10)
+    if ble_connect_flag is False:
+        print('Failed to connect to peripheral {}, addr type: public'.format(mac))
+        raise
     #conn.disconnect()
     #print("BLE is disconnected")
+
 
 if __name__ == '__main__':
     bl602_demo_event_RPI_ble_wifi_tc()

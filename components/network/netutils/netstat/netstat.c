@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Bouffalolab.
+ * Copyright (c) 2016-2022 Bouffalolab.
  *
  * This file is part of
  *     *** Bouffalolab Software Dev Kit ***
@@ -31,7 +31,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+#ifdef CONFIG_CLI_CMD_ENABLE
 #include <cli.h>
+#endif
 #include <lwip/tcpip.h>
 #include <lwip/stats.h>
 #include <netutils/netutils.h>
@@ -43,11 +45,12 @@ static void cmd_netstat(char *buf, int len, int argc, char **argv)
   tcpip_callback(stats_netstat, NULL);
 }
 
+#ifdef CONFIG_CLI_CMD_ENABLE
 // STATIC_CLI_CMD_ATTRIBUTE makes this(these) command(s) static
 const static struct cli_command cmds_user[] STATIC_CLI_CMD_ATTRIBUTE = {
     {"netstat", "show current net states", cmd_netstat},
 };                                                                                   
-
+#endif
 #endif
 
 int network_netutils_netstat_cli_register()

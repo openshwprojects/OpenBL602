@@ -51,11 +51,11 @@ extern "C" {
 #endif
 
 #ifndef EF_STR_ENV_VALUE_MAX_SIZE
-#define EF_STR_ENV_VALUE_MAX_SIZE                (3980)
+#define EF_STR_ENV_VALUE_MAX_SIZE                (3979)
 #endif
 
 /* EasyFlash debug print function. Must be implement by user. */
-#ifdef PRINT_DEBUG
+#if PRINT_DEBUG
 #define EF_DEBUG(...) ef_log_debug(__FILE__, __LINE__, __VA_ARGS__)
 #else
 #define EF_DEBUG(...)
