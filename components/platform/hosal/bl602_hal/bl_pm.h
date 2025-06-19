@@ -86,6 +86,7 @@ enum PM_LEVEL{
     PM_MODE_STA_COEX,
     PM_MODE_STA_DOWN,
     PM_MODE_AP_IDLE,
+    PM_MODE_STA_MAX,
     PM_MODE_MAX,
 };
 
