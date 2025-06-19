@@ -463,6 +463,17 @@ int bl_pm_capacity_set(enum PM_LEVEL level)
         }
         break;
 
+        case PM_MODE_STA_MAX:
+        {
+            capacity |= NODE_CAP_BIT_UAPSD_MODE;
+            capacity |= NODE_CAP_BIT_MAC_IDLE;
+            capacity |= NODE_CAP_BIT_MAC_DOZE;
+            capacity |= NODE_CAP_BIT_RF_ONOFF;
+            capacity |= NODE_CAP_BIT_WLAN_BLE_ABORT;
+            capacity |= NODE_CAP_BIT_FORCE_SLEEP;
+        }
+        break;
+
         default:
         {
             return -1;

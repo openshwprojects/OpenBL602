@@ -1145,12 +1145,13 @@ class bl_whole_img_generate():
             return False
 
 class bl_img_ota():
-    def bl_mfg_ota_header(self, file_bytearray, use_xz):
+    def bl_mfg_ota_header(self, file_bytearray, orig_bytearray, use_xz):
         ota_conf = bl_find_file("ota", ".toml")
         parsed_toml = toml.load(ota_conf)
         header_len = 512
         header = bytearray()
         file_len = len(file_bytearray)
+        orig_file_len = len(orig_bytearray)
         m = hashlib.sha256()
 
         # 16 Bytes header
@@ -1203,6 +1204,12 @@ class bl_img_ota():
         hash_bytes = m.digest()
         for b in hash_bytes:
             header.append(b)
+        
+        # 4 Bytes file length
+        orig_file_len_bytes = orig_file_len.to_bytes(4, byteorder='little')
+        for b in orig_file_len_bytes:
+            header.append(b)
+
         header_len = header_len - len(header)
         while header_len > 0:
             header.append(0xFF)
@@ -1240,7 +1247,7 @@ class bl_img_ota():
             print("[bl_mfg_ota_xz_gen] the size of xz data (after compression) is " +str(len(file_bytes)))
             for b in file_bytes:
                 fw_ota_bin_xz.append(b)
-        fw_ota_bin_xz_ota = self.bl_mfg_ota_header(fw_ota_bin_xz, use_xz=1)
+        fw_ota_bin_xz_ota = self.bl_mfg_ota_header(fw_ota_bin_xz, fw_ota_bin, use_xz=1)
         for b in fw_ota_bin_xz:
             fw_ota_bin_xz_ota.append(b)
         if cpu_type == None:
@@ -1287,7 +1294,7 @@ class bl_img_ota():
             print("[bl_mfg_ota_bin_gen] The len of " + img_fw_path + " is  " + str(len(file_bytes)))
             for b in file_bytes:
                 fw_ota_bin.append(b)
-        fw_ota_bin_header = self.bl_mfg_ota_header(fw_ota_bin, use_xz=0)
+        fw_ota_bin_header = self.bl_mfg_ota_header(fw_ota_bin, fw_ota_bin, use_xz=0)
         
         FW_OTA_path = os.path.join(app_path, bin_build_out_path, "ota")
         if not os.path.exists(FW_OTA_path):
