@@ -919,16 +919,14 @@ int wifi_mgmr_scan_ap(char *ssid, wifi_mgmr_ap_item_t *item)
     for (i = 0; i < sizeof(wifiMgmr.scan_items)/sizeof(wifiMgmr.scan_items[0]); i++) {
         if (wifiMgmr.scan_items[i].is_used &&
                 (!wifi_mgmr_scan_item_is_timeout(&wifiMgmr, &(wifiMgmr.scan_items[i]))) && 0 == strcmp(wifiMgmr.scan_items[i].ssid, ssid)) {
-            /*found the ssid*/
-            index = i;
             if (wifiMgmr.scan_items[i].rssi > rssi) {
-                /*found ap with better rssi*/
+                /*found ap with better rssi - select it*/
                 rssi = wifiMgmr.scan_items[i].rssi;
+                index = i;
             }
-            break;
         }
     }
-    if ((sizeof(wifiMgmr.scan_items)/sizeof(wifiMgmr.scan_items[0]) != i) && (index >= 0)) {
+    if (index >= 0) {
         /*proper item found, copy back data now*/
         //TODO FIXME we should scan the ap from the cache within the Wi-Fi manager thread
         scan = &wifiMgmr.scan_items[index];
@@ -1158,4 +1156,9 @@ void wifi_mgmr_diagnose_tlv_free_ele(struct sm_connect_tlv_desc *ele)
     }
 
     bl_os_free(ele);
+}
+
+void wifi_mgmr_set_hostname(char *hostname) {
+    snprintf(wifiMgmr.hostname, sizeof(wifiMgmr.hostname), "%s", hostname);
+    wifiMgmr.hostname[sizeof(wifiMgmr.hostname) - 1] = '\0';
 }

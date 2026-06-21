@@ -320,6 +320,8 @@ int wifi_mgmr_bcnind_cipher_to_ext(int cipher);
 struct sm_connect_tlv_desc* wifi_mgmr_diagnose_tlv_get_ele(void);
 void wifi_mgmr_diagnose_tlv_free_ele(struct sm_connect_tlv_desc* ele);
 
+void wifi_mgmr_set_hostname(char *hostname);
+
 #if defined(__cplusplus)
 }
 #endif

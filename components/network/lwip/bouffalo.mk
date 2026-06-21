@@ -24,7 +24,7 @@ COMPONENT_PRIV_INCLUDEDIRS := src/apps/altcp_tls
 #COMPONENT_SRCS :=
 #COMPONENT_OBJS := $(patsubst %.c,%.o, $(COMPONENT_SRCS))
 
-COMPONENT_SRCDIRS := src/api src/core src/core/ipv4 src/netif lwip-port/FreeRTOS lwip-port src/apps/altcp_tls src/apps/mqtt
+COMPONENT_SRCDIRS := src/api src/core src/core/ipv4 src/netif lwip-port/FreeRTOS lwip-port src/apps/altcp_tls src/apps/mqtt src/apps/mdns
 
 ifeq ($(CONFIG_COMPONENT_BUGKILLER_ENABLE),1)
 COMPONENT_ADD_INCLUDEDIRS += bugkiller/include
